@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Keyframes ─────────────────────────────────── */
+@keyframes float-glow {
+  0%, 100% { transform: scale(1);    box-shadow: 0 0 20px rgba(200,255,0,0.4); }
+  50%       { transform: scale(1.08); box-shadow: 0 0 42px rgba(200,255,0,0.85); }
+}
+
+@keyframes grain-shift {
+  0%   { transform: translate(0,   0  ); }
+  10%  { transform: translate(-3%, 4% ); }
+  20%  { transform: translate(4%, -2% ); }
+  30%  { transform: translate(-2%, 6% ); }
+  40%  { transform: translate(5%, -4% ); }
+  50%  { transform: translate(-4%, 2% ); }
+  60%  { transform: translate(2%, -6% ); }
+  70%  { transform: translate(-5%, 3% ); }
+  80%  { transform: translate(3%, -3% ); }
+  90%  { transform: translate(-1%, 5% ); }
+  100% { transform: translate(0,   0  ); }
+}
+
+/* ─── CSS Variables ─────────────────────────────── */
+@layer base {
+  :root {
+    --brand-ink:     #1a0a2e;
+    --brand-glow:    #c8ff00;
+    --grain-opacity: 0;           /* off in light mode */
+  }
+
+  :root.dark {
+    --grain-opacity: 0.038;       /* on in dark mode */
+  }
+
+  html, body, #root {
+    min-height: 100%;
+  }
+}
+
+/* ─── Components ────────────────────────────────── */
+@layer components {
+
+  /* ── Light mode card ── */
+  .card-glass {
+    @apply rounded-2xl;
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.07);
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.06),
+      0 4px 16px rgba(0, 0, 0, 0.04);
+  }
+
+  /* ── Dark mode card — glassmorphism ── */
+  .dark .card-glass {
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.07) 0%,
+      rgba(255, 255, 255, 0.02) 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* ── Grain overlay ── */
+  .grain-overlay {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .grain-overlay::after {
+    content: '';
+    position: fixed;
+    inset: -100%;
+    width: 300%;
+    height: 300%;
+    pointer-events: none;
+    z-index: 9998;
+    opacity: var(--grain-opacity);
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+    background-size: 160px 160px;
+    animation: grain-shift 0.45s steps(1) infinite;
+  }
+}

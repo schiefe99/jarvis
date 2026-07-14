@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Jarvis — Documentação Técnica</title>
+<style>
+  /* ── Fonte ─────────────────────────────── */
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --blue:    #2563eb;
+    --indigo:  #4f46e5;
+    --green:   #16a34a;
+    --orange:  #ea580c;
+    --gray50:  #f8fafc;
+    --gray100: #f1f5f9;
+    --gray200: #e2e8f0;
+    --gray400: #94a3b8;
+    --gray600: #475569;
+    --gray800: #1e293b;
+    --gray900: #0f172a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: var(--gray800);
+    background: #fff;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 40px 48px;
+  }
+
+  /* ── Capa ─────────────────────────────── */
+  .cover {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    text-align: center;
+    page-break-after: always;
+    gap: 16px;
+  }
+  .cover-logo {
+    width: 80px; height: 80px;
+    background: linear-gradient(135deg, var(--blue), var(--indigo));
+    border-radius: 20px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px; font-weight: 700; color: #fff;
+    margin-bottom: 8px;
+  }
+  .cover h1 { font-size: 36px; font-weight: 700; color: var(--gray900); }
+  .cover h2 { font-size: 18px; font-weight: 400; color: var(--gray600); margin-top: 4px; }
+  .cover-meta {
+    margin-top: 32px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 32px;
+    text-align: left;
+    background: var(--gray50);
+    border: 1px solid var(--gray200);
+    border-radius: 12px;
+    padding: 24px 32px;
+    width: 100%;
+    max-width: 480px;
+  }
+  .cover-meta dt { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--gray400); font-weight: 600; }
+  .cover-meta dd { font-size: 13px; font-weight: 500; color: var(--gray800); margin-top: 2px; }
+  .cover-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #dbeafe; color: var(--blue);
+    border-radius: 999px; padding: 4px 12px;
+    font-size: 12px; font-weight: 600;
+    margin-top: 8px;
+  }
+
+  /* ── Índice ───────────────────────────── */
+  .toc { page-break-after: always; }
+  .toc h2 { font-size: 22px; font-weight: 700; color: var(--gray900); margin-bottom: 20px; }
+  .toc ol { list-style: none; counter-reset: toc; }
+  .toc > ol > li { counter-increment: toc; margin-bottom: 4px; }
+  .toc > ol > li::before { content: counter(toc) ". "; font-weight: 600; color: var(--blue); }
+  .toc a { color: var(--gray800); text-decoration: none; font-weight: 500; }
+  .toc a:hover { color: var(--blue); }
+  .toc .sub { margin-left: 20px; margin-top: 2px; color: var(--gray600); font-size: 12.5px; }
+  .toc .sub li { list-style: disc; margin-left: 16px; }
+
+  /* ── Seções ───────────────────────────── */
+  section { margin-bottom: 48px; }
+  section:not(:first-child) { page-break-inside: avoid; }
+
+  h1.sec { font-size: 26px; font-weight: 700; color: var(--gray900); border-bottom: 3px solid var(--blue); padding-bottom: 8px; margin-bottom: 24px; }
+  h2.sub { font-size: 17px; font-weight: 700; color: var(--gray900); margin: 28px 0 12px; }
+  h3.sub { font-size: 14px; font-weight: 600; color: var(--gray700); margin: 20px 0 8px; }
+
+  p { margin-bottom: 12px; color: var(--gray600); }
+  strong { color: var(--gray900); }
+  em { color: var(--indigo); font-style: normal; font-weight: 600; }
+
+  /* ── Código ───────────────────────────── */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: var(--gray100);
+    border: 1px solid var(--gray200);
+    border-radius: 4px;
+    padding: 1px 5px;
+    color: var(--indigo);
+  }
+  pre {
+    background: var(--gray900);
+    color: #e2e8f0;
+    border-radius: 10px;
+    padding: 16px 20px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    margin: 12px 0 20px;
+  }
+  pre .c  { color: #64748b; }   /* comment */
+  pre .k  { color: #93c5fd; }   /* keyword */
+  pre .s  { color: #86efac; }   /* string */
+  pre .f  { color: #fbbf24; }   /* function */
+  pre .p  { color: #f9a8d4; }   /* path */
+
+  /* ── Tabelas ──────────────────────────── */
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 20px; font-size: 13px; }
+  thead tr { background: var(--gray900); color: #fff; }
+  thead th { padding: 10px 14px; text-align: left; font-weight: 600; font-size: 12px; }
+  thead th:first-child { border-radius: 8px 0 0 0; }
+  thead th:last-child  { border-radius: 0 8px 0 0; }
+  tbody tr:nth-child(even) { background: var(--gray50); }
+  tbody td { padding: 9px 14px; border-bottom: 1px solid var(--gray200); color: var(--gray700); vertical-align: top; }
+  tbody td:first-child { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--indigo); font-weight: 500; }
+
+  /* ── Fluxograma ───────────────────────── */
+  .flowchart {
+    background: var(--gray50);
+    border: 1px solid var(--gray200);
+    border-radius: 12px;
+    padding: 24px;
+    margin: 16px 0 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--gray700);
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  /* ── Cards de atenção ─────────────────── */
+  .callout {
+    border-left: 4px solid var(--blue);
+    background: #eff6ff;
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    margin: 12px 0 20px;
+    font-size: 13px;
+    color: var(--gray700);
+  }
+  .callout.warn  { border-color: var(--orange); background: #fff7ed; }
+  .callout.green { border-color: var(--green);  background: #f0fdf4; }
+  .callout strong { display: block; margin-bottom: 4px; color: var(--gray900); }
+
+  /* ── Badge de arquivo ─────────────────── */
+  .file-badge {
+    display: inline-block;
+    background: var(--gray900);
+    color: #fbbf24;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin: 0 2px;
+  }
+
+  /* ── Árvore de diretórios ─────────────── */
+  .tree {
+    background: var(--gray900);
+    color: #e2e8f0;
+    border-radius: 10px;
+    padding: 20px 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.9;
+    margin: 12px 0 20px;
+  }
+  .tree .dir  { color: #93c5fd; font-weight: 600; }
+  .tree .file { color: #e2e8f0; }
+  .tree .note { color: #64748b; }
+
+  /* ── Grid de responsabilidades ────────── */
+  .resp-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 12px 0 20px;
+  }
+  .resp-card {
+    border: 1px solid var(--gray200);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .resp-card h4 {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--blue);
+    margin-bottom: 8px;
+  }
+  .resp-card ul { padding-left: 16px; color: var(--gray600); font-size: 12.5px; }
+  .resp-card ul li { margin-bottom: 3px; }
+
+  /* ── Linha de separação ───────────────── */
+  hr { border: none; border-top: 1px solid var(--gray200); margin: 32px 0; }
+
+  /* ── Rodapé ───────────────────────────── */
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--gray200);
+    text-align: center;
+    color: var(--gray400);
+    font-size: 12px;
+  }
+
+  /* ── Print ────────────────────────────── */
+  @media print {
+    body { padding: 0; max-width: 100%; }
+    .cover { min-height: 100vh; }
+    section { page-break-inside: avoid; }
+    h1.sec  { page-break-before: always; }
+    pre, .flowchart, .tree { page-break-inside: avoid; }
+    @page { margin: 20mm 18mm; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     CAPA
+═══════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-logo">J</div>
+  <h1>Jarvis</h1>
+  <h2>Documentação Técnica Completa</h2>
+  <span class="cover-badge">✦ Full Stack · React · Node.js · SQLite</span>
+
+  <dl class="cover-meta">
+    <div>
+      <dt>Versão</dt>
+      <dd>1.0.0</dd>
+    </div>
+    <div>
+      <dt>Data</dt>
+      <dd>Maio 2026</dd>
+    </div>
+    <div>
+      <dt>Frontend</dt>
+      <dd>React 18 + Vite + Tailwind CSS</dd>
+    </div>
+    <div>
+      <dt>Backend</dt>
+      <dd>Node.js + Express + SQLite</dd>
+    </div>
+    <div>
+      <dt>Autenticação</dt>
+      <dd>JWT + bcryptjs</dd>
+    </div>
+    <div>
+      <dt>Gráficos</dt>
+      <dd>Recharts</dd>
+    </div>
+  </dl>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     ÍNDICE
+═══════════════════════════════════════════════════════ -->
+<div class="toc">
+  <h2>Sumário</h2>
+  <ol>
+    <li><a href="#visao">Visão Geral do Sistema</a></li>
+    <li><a href="#estrutura">Estrutura de Pastas</a></li>
+    <li><a href="#fluxo">Fluxograma de Navegação</a></li>
+    <li><a href="#banco">Banco de Dados (SQLite)</a></li>
+    <li><a href="#backend">Backend — API Node.js</a>
+      <ul class="sub">
+        <li>Rotas de Autenticação</li>
+        <li>Rotas de Tarefas</li>
+        <li>Rotas de Dashboard</li>
+      </ul>
+    </li>
+    <li><a href="#frontend">Frontend — React</a>
+      <ul class="sub">
+        <li>Contextos globais</li>
+        <li>Páginas</li>
+        <li>Componentes</li>
+        <li>Hook de Timer</li>
+      </ul>
+    </li>
+    <li><a href="#timer">Timer e Picture-in-Picture</a></li>
+    <li><a href="#estilo">Guia de Estilos (Tailwind)</a></li>
+    <li><a href="#manutencao">Guia de Manutenção</a></li>
+    <li><a href="#rodando">Como Rodar o Projeto</a></li>
+  </ol>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     1. VISÃO GERAL
+═══════════════════════════════════════════════════════ -->
+<section id="visao">
+  <h1 class="sec">1. Visão Geral do Sistema</h1>
+
+  <p>O <strong>Jarvis</strong> é um gerenciador de tarefas full stack com controle de tempo, autenticação por usuário, dashboard analítico e timer em modo Picture-in-Picture. O sistema roda inteiramente de forma local, com persistência em SQLite.</p>
+
+  <div class="resp-grid">
+    <div class="resp-card">
+      <h4>O que o usuário pode fazer</h4>
+      <ul>
+        <li>Criar conta e fazer login</li>
+        <li>Criar, editar e excluir tarefas</li>
+        <li>Organizar tarefas por categoria (Trabalho / Pessoal)</li>
+        <li>Iniciar, pausar e concluir cronômetro regressivo</li>
+        <li>Visualizar timer fora do browser (PiP)</li>
+        <li>Ver dashboard com métricas e gráficos</li>
+        <li>Filtrar tarefas por status e buscar por texto</li>
+        <li>Alternar entre tema claro e escuro</li>
+      </ul>
+    </div>
+    <div class="resp-card">
+      <h4>Tecnologias utilizadas</h4>
+      <ul>
+        <li><strong>Vite</strong> — bundler do frontend</li>
+        <li><strong>React 18</strong> — interface do usuário</li>
+        <li><strong>React Router v6</strong> — navegação entre páginas</li>
+        <li><strong>Tailwind CSS v3</strong> — estilização</li>
+        <li><strong>Recharts</strong> — gráficos no dashboard</li>
+        <li><strong>Axios</strong> — requisições HTTP</li>
+        <li><strong>Express</strong> — servidor HTTP</li>
+        <li><strong>better-sqlite3</strong> — banco de dados</li>
+        <li><strong>JWT + bcryptjs</strong> — autenticação</li>
+        <li><strong>Document PiP API</strong> — timer flutuante</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════
+     2. ESTRUTURA DE PASTAS
+═══════════════════════════════════════════════════════ -->
+<section id="estrutura">
+  <h1 class="sec">2. Estrutura de Pastas</h1>
+
+  <div class="tree">
+<span class="dir">react/</span>                          <span class="note">← raiz do projeto</span>
+├── <span class="dir">server/</span>                      <span class="note">← backend Node.js</span>
+│   ├── <span class="file">index.js</span>               <span class="note">← ponto de entrada do servidor</span>
+│   ├── <span class="file">database.js</span>            <span class="note">← conexão e criação das tabelas SQLite</span>
+│   ├── <span class="file">tasks.db</span>               <span class="note">← arquivo do banco de dados (gerado automaticamente)</span>
+│   ├── <span class="file">.env</span>                   <span class="note">← variáveis de ambiente (JWT_SECRET, PORT)</span>
+│   ├── <span class="dir">middleware/</span>
+│   │   └── <span class="file">auth.js</span>            <span class="note">← valida o token JWT em cada requisição</span>
+│   └── <span class="dir">routes/</span>
+│       ├── <span class="file">auth.js</span>            <span class="note">← /register e /login</span>
+│       ├── <span class="file">tasks.js</span>           <span class="note">← CRUD de tarefas</span>
+│       └── <span class="file">dashboard.js</span>       <span class="note">← métricas e gráficos</span>
+│
+├── <span class="dir">src/</span>                         <span class="note">← frontend React</span>
+│   ├── <span class="file">main.jsx</span>               <span class="note">← ponto de entrada React, providers globais</span>
+│   ├── <span class="file">App.jsx</span>                <span class="note">← definição de rotas</span>
+│   ├── <span class="file">index.css</span>              <span class="note">← Tailwind + animações customizadas</span>
+│   │
+│   ├── <span class="dir">services/</span>
+│   │   └── <span class="file">api.js</span>             <span class="note">← instância Axios com interceptors JWT</span>
+│   │
+│   ├── <span class="dir">hooks/</span>
+│   │   └── <span class="file">useTimer.js</span>        <span class="note">← lógica do cronômetro regressivo</span>
+│   │
+│   ├── <span class="dir">contexts/</span>
+│   │   ├── <span class="file">AuthContext.jsx</span>    <span class="note">← usuário logado (login/logout/register)</span>
+│   │   ├── <span class="file">ThemeContext.jsx</span>   <span class="note">← tema claro/escuro</span>
+│   │   └── <span class="file">ActiveTimerContext.jsx</span> <span class="note">← tarefa com timer ativo (global)</span>
+│   │
+│   ├── <span class="dir">pages/</span>
+│   │   ├── <span class="file">Login.jsx</span>          <span class="note">← tela de login</span>
+│   │   ├── <span class="file">Register.jsx</span>       <span class="note">← tela de cadastro</span>
+│   │   ├── <span class="file">TasksPage.jsx</span>      <span class="note">← lista de tarefas por categoria</span>
+│   │   └── <span class="file">Dashboard.jsx</span>      <span class="note">← métricas e gráficos</span>
+│   │
+│   └── <span class="dir">components/</span>
+│       ├── <span class="file">Layout.jsx</span>         <span class="note">← estrutura com Navbar + Sidebar</span>
+│       ├── <span class="file">Navbar.jsx</span>         <span class="note">← barra superior (logo, usuário, dark mode)</span>
+│       ├── <span class="file">Sidebar.jsx</span>        <span class="note">← menu lateral de navegação</span>
+│       ├── <span class="file">PrivateRoute.jsx</span>   <span class="note">← proteção de rotas autenticadas</span>
+│       ├── <span class="file">TaskCard.jsx</span>       <span class="note">← card individual de tarefa com timer</span>
+│       ├── <span class="file">TaskModal.jsx</span>      <span class="note">← modal de criar/editar tarefa</span>
+│       └── <span class="file">FloatingTimer.jsx</span>  <span class="note">← bubble flutuante + Picture-in-Picture</span>
+│
+├── <span class="file">vite.config.js</span>             <span class="note">← configuração do Vite (proxy para /api)</span>
+├── <span class="file">tailwind.config.js</span>         <span class="note">← configuração do Tailwind (darkMode: class)</span>
+├── <span class="file">package.json</span>               <span class="note">← dependências do frontend</span>
+└── <span class="file">DOCUMENTACAO.html</span>          <span class="note">← este arquivo</span>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════
+     3. FLUXOGRAMA
+═══════════════════════════════════════════════════════ -->
+<section id="fluxo">
+  <h1 class="sec">3. Fluxograma de Navegação</h1>
+
+  <h2 class="sub">3.1 Fluxo de Autenticação</h2>
+  <div class="flowchart">
+  Usuário acessa qualquer URL
+          │
+          ▼
+  ┌───────────────────┐
+  │   Tem JWT válido  │
+  │  no localStorage? │
+  └───────────────────┘
+       │          │
+      SIM        NÃO
+       │          │
+       ▼          ▼
+  Acessa       /login  ◄──── /register
+  a rota            │              │
+  normalmente       │    Cria conta│
+                    │    (POST /api/auth/register)
+                    │              │
+                    └──────────────┘
+                         │
+                    POST /api/auth/login
+                         │
+                    Recebe token JWT
+                         │
+                    Salva no localStorage
+                    (token + user)
+                         │
+                         ▼
+                  /tasks?category=trabalho
+  </div>
+
+  <h2 class="sub">3.2 Fluxo de Navegação Principal</h2>
+  <div class="flowchart">
+  ┌─────────────────────────────────────────────────────────┐
+  │                    LAYOUT (autenticado)                 │
+  │  ┌──────────────┐   ┌──────────────────────────────┐   │
+  │  │   SIDEBAR    │   │       CONTEÚDO PRINCIPAL     │   │
+  │  │              │   │                              │   │
+  │  │  ► Trabalho  │──►│  /tasks?category=trabalho    │   │
+  │  │              │   │  Tarefas filtradas + busca   │   │
+  │  │  ► Pessoal   │──►│  /tasks?category=pessoal     │   │
+  │  │              │   │                              │   │
+  │  │  ► Dashboard │──►│  /dashboard                  │   │
+  │  │              │   │  Métricas + 3 gráficos       │   │
+  │  └──────────────┘   └──────────────────────────────┘   │
+  │                                                         │
+  │  NAVBAR: Logo | Nome do usuário | Dark mode | Logout    │
+  │  FLOATING TIMER: aparece quando timer está ativo        │
+  └─────────────────────────────────────────────────────────┘
+  </div>
+
+  <h2 class="sub">3.3 Fluxo de uma Tarefa (ciclo de vida)</h2>
+  <div class="flowchart">
+  Clica em "Nova tarefa"
+          │
+          ▼
+  ┌─────────────────┐
+  │  Modal se abre  │
+  │  título         │
+  │  descrição      │
+  │  categoria      │
+  │  tempo estimado │
+  └─────────────────┘
+          │ Salvar
+          ▼
+  POST /api/tasks
+  status: "nao_iniciada"
+  timer_active: 0
+          │
+          ▼
+  Card aparece na lista
+          │
+     ┌────┴────┐
+     │  Iniciar│
+     └────┬────┘
+          ▼
+  PUT /api/tasks/:id
+  timer_active: 1
+  timer_started_at: agora (timestamp)
+  status: "em_andamento"
+  Bubble PiP aparece ──► pode abrir fora do browser
+          │
+     ┌────┴────┐
+     │  Pausar │
+     └────┬────┘
+          ▼
+  PUT /api/tasks/:id
+  timer_active: 0
+  real_time += (agora - timer_started_at)
+  timer_started_at: null
+          │
+     ┌────┴──────┐
+     │  Concluir │
+     └────┬──────┘
+          ▼
+  PUT /api/tasks/:id
+  status: "concluida"
+  finished_at: agora
+  Notificação do browser disparada
+  </div>
+
+  <h2 class="sub">3.4 Fluxo de Dados (Frontend ↔ Backend)</h2>
+  <div class="flowchart">
+  ┌─────────────────────────────────────────────────────┐
+  │                   REACT (porta 5173)                │
+  │                                                     │
+  │  Axios (src/services/api.js)                        │
+  │  ├── Adiciona header: Authorization: Bearer {JWT}   │
+  │  ├── Se resposta 401 → limpa localStorage → /login  │
+  │  └── Todas as requisições vão para /api/...         │
+  └─────────────────────────────────────────────────────┘
+                        │ /api/* (proxy via Vite)
+                        ▼
+  ┌─────────────────────────────────────────────────────┐
+  │                  EXPRESS (porta 3001)               │
+  │                                                     │
+  │  Middleware auth.js                                 │
+  │  └── Verifica JWT → extrai user_id                  │
+  │                                                     │
+  │  routes/auth.js    → sem autenticação               │
+  │  routes/tasks.js   → requer JWT                     │
+  │  routes/dashboard.js → requer JWT                   │
+  └─────────────────────────────────────────────────────┘
+                        │
+                        ▼
+  ┌─────────────────────────────────────────────────────┐
+  │            SQLite (server/tasks.db)                 │
+  │                                                     │
+  │  tabela users     tabela tasks                      │
+  │  ├── id           ├── id                            │
+  │  ├── name         ├── user_id (FK)                  │
+  │  ├── email        ├── title, description, category  │
+  │  └── password     ├── status, estimated_time        │
+  │     (hash bcrypt) ├── real_time, timer_active       │
+  │                   ├── timer_started_at              │
+  │                   └── created_at, finished_at       │
+  └─────────────────────────────────────────────────────┘
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════
+     4. BANCO DE DADOS
+═══════════════════════════════════════════════════════ -->
+<section id="banco">
+  <h1 class="sec">4. Banco de Dados (SQLite)</h1>
+
+  <p>O banco de dados é um arquivo único <code>server/tasks.db</code> criado automaticamente na primeira execução. Não há configuração adicional necessária.</p>
+
+  <h2 class="sub">4.1 Tabela: users</h2>
+  <table>
+    <thead><tr><th>Coluna</th><th>Tipo</th><th>Descrição</th></tr></thead>
+    <tbody>
+      <tr><td>id</td><td>INTEGER PK</td><td>Identificador único auto-incrementado</td></tr>
+      <tr><td>name</td><td>TEXT</td><td>Nome do usuário</td></tr>
+      <tr><td>email</td><td>TEXT UNIQUE</td><td>Email de login (único)</td></tr>
+      <tr><td>password</td><td>TEXT</td><td>Senha hasheada com bcrypt (custo 10)</td></tr>
+      <tr><td>created_at</td><td>INTEGER</td><td>Unix timestamp de criação</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="sub">4.2 Tabela: tasks</h2>
+  <table>
+    <thead><tr><th>Coluna</th><th>Tipo</th><th>Descrição</th></tr></thead>
+    <tbody>
+      <tr><td>id</td><td>INTEGER PK</td><td>Identificador único auto-incrementado</td></tr>
+      <tr><td>user_id</td><td>INTEGER FK</td><td>Referência ao dono da tarefa (users.id)</td></tr>
+      <tr><td>title</td><td>TEXT</td><td>Título da tarefa</td></tr>
+      <tr><td>description</td><td>TEXT</td><td>Descrição detalhada (opcional)</td></tr>
+      <tr><td>category</td><td>TEXT</td><td>Categoria: <code>'trabalho'</code> ou <code>'pessoal'</code></td></tr>
+      <tr><td>status</td><td>TEXT</td><td><code>'nao_iniciada'</code> | <code>'em_andamento'</code> | <code>'concluida'</code></td></tr>
+      <tr><td>estimated_time</td><td>INTEGER</td><td>Tempo estimado em <strong>segundos</strong> (padrão: 5400 = 1h30)</td></tr>
+      <tr><td>real_time</td><td>INTEGER</td><td>Tempo acumulado em segundos (atualizado ao pausar)</td></tr>
+      <tr><td>timer_active</td><td>INTEGER</td><td><code>0</code> = parado, <code>1</code> = rodando</td></tr>
+      <tr><td>timer_started_at</td><td>INTEGER</td><td>Unix timestamp de quando o timer foi iniciado pela última vez</td></tr>
+      <tr><td>created_at</td><td>INTEGER</td><td>Unix timestamp de criação da tarefa</td></tr>
+      <tr><td>finished_at</td><td>INTEGER</td><td>Unix timestamp de conclusão (null até ser concluída)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <strong>Como o timer persiste no reload?</strong>
+    O tempo restante é sempre calculado em tempo real: <code>restante = estimated_time - real_time - (agora - timer_started_at)</code>. Ao recarregar a página, o frontend busca a tarefa do banco, encontra <code>timer_active = 1</code> e <code>timer_started_at</code> preenchido, e reconstrói o cronômetro corretamente.
+  </div>
+
+  <h2 class="sub">4.3 Onde fica o banco</h2>
+  <p>Arquivo físico: <span class="file-badge">react/server/tasks.db</span></p>
+  <p>Para fazer backup, basta copiar este arquivo. Para resetar tudo, delete-o (será recriado vazio na próxima execução do servidor).</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════
+     5. BACKEND
+═══════════════════════════════════════════════════════ -->
+<section id="backend">
+  <h1 class="sec">5. Backend — API Node.js</h1>
+
+  <h2 class="sub">5.1 Arquivo principal</h2>
+  <p><span class="file-badge">server/index.js</span> — sobe o Express na porta <strong>3001</strong>, configura CORS para aceitar requisições do Vite (porta 5173) e registra as três rotas.</p>
+
+  <h2 class="sub">5.2 Rotas de Autenticação</h2>
+  <p>Arquivo: <span class="file-badge">server/routes/auth.js</span></p>
+  <table>
+    <thead><tr><th>Método + Rota</th><th>Body</th><th>Retorno</th></tr></thead>
+    <tbody>
+      <tr><td>POST /api/auth/register</td><td>name, email, password</td><td>{ token, user }</td></tr>
+      <tr><td>POST /api/auth/login</td><td>email, password</td><td>{ token, user }</td></tr>
+    </tbody>
+  </table>
+  <p>O token JWT expira em <strong>7 dias</strong>. Para alterar, edite o parâmetro <code>expiresIn</code> em <span class="file-badge">server/routes/auth.js</span>.</p>
+
+  <h2 class="sub">5.3 Rotas de Tarefas</h2>
+  <p>Arquivo: <span class="file-badge">server/routes/tasks.js</span> — todas requerem header <code>Authorization: Bearer {token}</code>.</p>
+  <table>
+    <thead><tr><th>Método + Rota</th><th>Filtros / Body</th><th>Descrição</th></tr></thead>
+    <tbody>
+      <tr><td>GET /api/tasks</td><td>?category=, ?status=, ?search=</td><td>Lista tarefas do usuário logado</td></tr>
+      <tr><td>POST /api/tasks</td><td>title, description, category, estimated_time</td><td>Cria nova tarefa</td></tr>
+      <tr><td>PUT /api/tasks/:id</td><td>qualquer campo da tabela tasks</td><td>Atualiza tarefa (parcial)</td></tr>
+      <tr><td>DELETE /api/tasks/:id</td><td>—</td><td>Remove a tarefa</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="sub">5.4 Rotas de Dashboard</h2>
+  <p>Arquivo: <span class="file-badge">server/routes/dashboard.js</span></p>
+  <table>
+    <thead><tr><th>Rota</th><th>Dados retornados</th></tr></thead>
+    <tbody>
+      <tr><td>GET /api/dashboard/metrics</td><td>counts (por status), completionRate, avgTime, totalTime, productivity, timeline (30 dias), categoryStats</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="sub">5.5 Variáveis de ambiente</h2>
+  <p>Arquivo: <span class="file-badge">server/.env</span></p>
+  <pre>PORT=3001
+JWT_SECRET=taskmanager_jwt_secret_dev_2024   <span class="c"># ← troque em produção!</span></pre>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════
+     6. FRONTEND
+═══════════════════════════════════════════════════════ -->
+<section id="frontend">
+  <h1 class="sec">6. Frontend — React</h1>
+
+  <h2 class="sub">6.1 Contextos Globais</h2>
+  <p>Os contextos ficam em <span class="file-badge">src/contexts/</span> e são registrados em <span class="file-badge">src/main.jsx</span>. A ordem de hierarquia é:</p>
+  <pre><span class="k">&lt;BrowserRouter&gt;</span>
+  <span class="k">&lt;ThemeProvider&gt;</span>        <span class="c">← dark/light mode</span>
+    <span class="k">&lt;AuthProvider&gt;</span>       <span class="c">← usuário logado</span>
+      <span class="k">&lt;ActiveTimerProvider&gt;</span> <span class="c">← tarefa com timer ativo</span>
+        <span class="k">&lt;App /&gt;</span>
+      <span class="k">&lt;/ActiveTimerProvider&gt;</span>
+    <span class="k">&lt;/AuthProvider&gt;</span>
+  <span class="k">&lt;/ThemeProvider&gt;</span>
+<span class="k">&lt;/BrowserRouter&gt;</span></pre>
+
+  <table>
+    <thead><tr><th>Contexto</th><th>O que expõe</th></tr></thead>
+    <tbody>
+      <tr><td>AuthContext</td><td>user, login(), register(), logout()</td></tr>
+      <tr><td>ThemeContext</td><td>dark (boolean), toggle()</td></tr>
+      <tr><td>ActiveTimerContext</td><td>activeTask, setActiveTask(), clearActiveTask(), lastUpdate</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="sub">6.2 Páginas</h2>
+  <table>
+    <thead><tr><th>Arquivo</th><th>Rota</th><th>Descrição</th></tr></thead>
+    <tbody>
+      <tr><td>Login.jsx</td><td>/login</td><td>Formulário de login com tratamento de erro</td></tr>
+      <tr><td>Register.jsx</td><td>/register</td><td>Formulário de cadastro com validação de senha</td></tr>
+      <tr><td>TasksPage.jsx</td><td>/tasks?category=X</td><td>Lista de tarefas filtradas, busca, modal de criação</td></tr>
+      <tr><td>Dashboard.jsx</td><td>/dashboard</td><td>7 cards de métricas + 3 gráficos Recharts</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="sub">6.3 Componentes</h2>
+  <table>
+    <thead><tr><th>Arquivo</th><th>Responsabilidade</th></tr></thead>
+    <tbody>
+      <tr><td>Layout.jsx</td><td>Estrutura visual: Navbar + Sidebar + conteúdo + FloatingTimer</td></tr>
+      <tr><td>Navbar.jsx</td><td>Logo, nome do usuário, botão dark mode, botão logout</td></tr>
+      <tr><td>Sidebar.jsx</td><td>Links de navegação entre categorias e dashboard</td></tr>
+      <tr><td>PrivateRoute.jsx</td><td>Redireciona para /login se não autenticado</td></tr>
+      <tr><td>TaskCard.jsx</td><td>Card de tarefa: título, badges, timer ao vivo, botões Start/Pause/Finish/Edit/Delete</td></tr>
+      <tr><td>TaskModal.jsx</td><td>Modal de criar e editar tarefa (título, descrição, categoria, tempo estimado)</td></tr>
+      <tr><td>FloatingTimer.jsx</td><td>Bubble arrastável + Picture-in-Picture nativo do OS</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="sub">6.4 Hook useTimer</h2>
+  <p>Arquivo: <span class="file-badge">src/hooks/useTimer.js</span></p>
+  <p>Este hook é a peça central do cronômetro. Ele <strong>não armazena estado próprio</strong> de quanto tempo passou — calcula isso dinamicamente a cada segundo com base nos dados do banco:</p>
+  <pre><span class="k">function</span> <span class="f">calcRemaining</span>(task) {
+  <span class="k">const</span> now = Math.floor(Date.now() / 1000);  <span class="c">// timestamp atual em segundos</span>
+  <span class="k">if</span> (task.timer_active &amp;&amp; task.timer_started_at) {
+    <span class="k">const</span> elapsed = now - task.timer_started_at;
+    <span class="k">return</span> Math.max(0, task.estimated_time - task.real_time - elapsed);
+  }
+  <span class="k">return</span> Math.max(0, task.estimated_time - task.real_time);
+}</pre>
+  <p>Isso garante que o timer seja correto mesmo após um reload da página, sem precisar de WebSocket ou polling.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════
+     7. TIMER E PICTURE-IN-PICTURE
+═══════════════════════════════════════════════════════ -->
+<section id="timer">
+  <h1 class="sec">7. Timer e Picture-in-Picture</h1>
+
+  <h2 class="sub">7.1 Como funciona o bubble flutuante</h2>
+  <p>O <span class="file-badge">FloatingTimer.jsx</span> é renderizado dentro do <code>Layout</code> e usa o <code>ActiveTimerContext</code> para saber se há uma tarefa com timer ativo. Quando existe, ele aparece como um círculo arrastável com:</p>
+  <ul style="padding-left:20px; color: var(--gray600); margin-bottom:12px;">
+    <li>Anel SVG de progresso (azul → laranja → vermelho conforme o tempo passa)</li>
+    <li>Tempo restante no centro em fonte monospace</li>
+    <li>Hover: botões de pausar e concluir</li>
+    <li>Hover: ícone de pop-out no canto superior direito</li>
+  </ul>
+  <p>O bubble usa <strong>eventos de mouse nativos</strong> (sem biblioteca) para o drag, calculando o deslocamento a partir da posição inicial do clique.</p>
+
+  <h2 class="sub">7.2 Document Picture-in-Picture API</h2>
+  <p>Ao clicar no ícone de pop-out, o código chama:</p>
+  <pre><span class="k">const</span> pip = <span class="k">await</span> window.documentPictureInPicture.<span class="f">requestWindow</span>({
+  width: 260, height: 240
+});</pre>
+  <p>Isso abre uma <strong>janela nativa do OS</strong> gerenciada pelo Chrome/Edge. Em seguida:</p>
+  <ol style="padding-left:20px; color: var(--gray600); margin-bottom:12px; line-height:2;">
+    <li>Todos os <code>&lt;style&gt;</code> e <code>&lt;link&gt;</code> CSS são copiados para o documento da janela PiP</li>
+    <li>Um <code>div</code> container é criado no <code>body</code> da janela PiP</li>
+    <li>O componente <code>PipContent</code> é renderizado dentro desse container via <code>ReactDOM.createPortal</code></li>
+    <li>O portal é parte da mesma árvore React, então o timer continua atualizando normalmente</li>
+  </ol>
+  <div class="callout warn">
+    <strong>Compatibilidade do PiP</strong>
+    A Document Picture-in-Picture API só funciona no Chrome 116+ e Edge 116+. Em Firefox e Safari, ao clicar no pop-out aparece um alert informando. O bubble normal continua funcionando em todos os browsers.
+  </div>
+
+  <h2 class="sub">7.3 Onde alterar o tamanho e aparência da janela PiP</h2>
+  <p>Em <span class="file-badge">src/components/FloatingTimer.jsx</span>, procure a função <code>togglePip</code>:</p>
+  <pre><span class="k">const</span> pip = <span class="k">await</span> window.documentPictureInPicture.<span class="f">requestWindow</span>({
+  width: 260,   <span class="c">// ← largura em pixels</span>
+  height: 240,  <span class="c">// ← altura em pixels</span>
+});</pre>
+  <p>O conteúdo visual da janela PiP está no componente <code>PipContent</code> (mesma função, no topo do arquivo), usando <strong>estilos inline</strong> para garantir compatibilidade com o documento separado da janela.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════
+     8. GUIA DE ESTILOS
+═══════════════════════════════════════════════════════ -->
+<section id="estilo">
+  <h1 class="sec">8. Guia de Estilos (Tailwind CSS)</h1>
+
+  <h2 class="sub">8.1 Configuração</h2>
+  <p>Arquivo: <span class="file-badge">tailwind.config.js</span></p>
+  <pre><span class="k">export default</span> {
+  darkMode: <span class="s">'class'</span>,  <span class="c">// ← dark mode via classe no &lt;html&gt;</span>
+  content: [<span class="s">"./src/**/*.{js,ts,jsx,tsx}"</span>],
+  theme: { extend: {} },
+  plugins: [],
+}</pre>
+
+  <h2 class="sub">8.2 Paleta de cores usada</h2>
+  <table>
+    <thead><tr><th>Elemento</th><th>Classe (claro)</th><th>Classe (escuro)</th></tr></thead>
+    <tbody>
+      <tr><td>Fundo da página</td><td>bg-gray-50</td><td>dark:bg-gray-900</td></tr>
+      <tr><td>Cards / Sidebar</td><td>bg-white</td><td>dark:bg-gray-800</td></tr>
+      <tr><td>Borda de cards</td><td>border-gray-200</td><td>dark:border-gray-700</td></tr>
+      <tr><td>Texto principal</td><td>text-gray-900</td><td>dark:text-white</td></tr>
+      <tr><td>Texto secundário</td><td>text-gray-500</td><td>dark:text-gray-400</td></tr>
+      <tr><td>Destaque azul</td><td>text-blue-600</td><td>dark:text-blue-400</td></tr>
+      <tr><td>Status: não iniciada</td><td>bg-gray-100 text-gray-600</td><td>dark:bg-gray-700 dark:text-gray-300</td></tr>
+      <tr><td>Status: em andamento</td><td>bg-blue-100 text-blue-700</td><td>dark:bg-blue-900/40 dark:text-blue-400</td></tr>
+      <tr><td>Status: concluída</td><td>bg-green-100 text-green-700</td><td>dark:bg-green-900/40 dark:text-green-400</td></tr>
+      <tr><td>Categoria: trabalho</td><td>bg-purple-100 text-purple-700</td><td>dark:bg-purple-900/40 dark:text-purple-400</td></tr>
+      <tr><td>Categoria: pessoal</td><td>bg-orange-100 text-orange-700</td><td>dark:bg-orange-900/40 dark:text-orange-400</td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="sub">8.3 Animações customizadas</h2>
+  <p>Arquivo: <span class="file-badge">src/index.css</span></p>
+  <pre><span class="k">@keyframes</span> float-glow {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50%       { transform: scale(1.15); opacity: 1; }
+}
+
+<span class="c">/* usada no glow ao redor do bubble flutuante */</span></pre>
+
+  <h2 class="sub">8.4 Como adicionar uma nova categoria</h2>
+  <p>As categorias são definidas em dois lugares. Para adicionar, por exemplo, <code>'estudos'</code>:</p>
+  <ol style="padding-left:20px; color: var(--gray600); line-height:2.2;">
+    <li>Em <span class="file-badge">src/components/TaskModal.jsx</span> → array <code>CATEGORIES</code>, adicione <code>{ value: 'estudos', label: 'Estudos' }</code></li>
+    <li>Em <span class="file-badge">src/components/TaskCard.jsx</span> → objeto <code>CATEGORY_STYLE</code>, adicione a classe de cor para a nova categoria</li>
+    <li>Em <span class="file-badge">src/components/Sidebar.jsx</span> → array <code>links</code>, adicione o link de navegação</li>
+  </ol>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════
+     9. MANUTENÇÃO
+═══════════════════════════════════════════════════════ -->
+<section id="manutencao">
+  <h1 class="sec">9. Guia de Manutenção</h1>
+
+  <h2 class="sub">9.1 Tarefas comuns</h2>
+  <table>
+    <thead><tr><th>O que fazer</th><th>Onde mexer</th></tr></thead>
+    <tbody>
+      <tr><td>Mudar tempo estimado padrão (hoje: 1h30)</td><td><code>server/routes/tasks.js</code> → <code>estimated_time || 5400</code></td></tr>
+      <tr><td>Adicionar novo campo à tarefa</td><td>1) <code>server/database.js</code> (SQL) · 2) <code>server/routes/tasks.js</code> (PUT) · 3) <code>src/components/TaskModal.jsx</code> (formulário) · 4) <code>src/components/TaskCard.jsx</code> (exibição)</td></tr>
+      <tr><td>Mudar o nome do app (Jarvis)</td><td><code>src/components/Navbar.jsx</code> e <code>src/pages/Login.jsx</code></td></tr>
+      <tr><td>Mudar cor primária do sistema</td><td>Substitua todas as classes <code>blue-600</code> pelo tom desejado em todos os arquivos de <code>src/</code></td></tr>
+      <tr><td>Mudar duração do token JWT</td><td><code>server/routes/auth.js</code> → <code>expiresIn: '7d'</code></td></tr>
+      <tr><td>Mudar porta do servidor</td><td><code>server/.env</code> → <code>PORT=3001</code> (e atualizar <code>vite.config.js</code> target)</td></tr>
+      <tr><td>Adicionar nova métrica no dashboard</td><td>1) Query SQL em <code>server/routes/dashboard.js</code> · 2) Card em <code>src/pages/Dashboard.jsx</code></td></tr>
+      <tr><td>Resetar o banco de dados</td><td>Deletar o arquivo <code>server/tasks.db</code> e reiniciar o servidor</td></tr>
+      <tr><td>Mudar tamanho da janela PiP</td><td><code>src/components/FloatingTimer.jsx</code> → função <code>togglePip</code> → <code>width</code> e <code>height</code></td></tr>
+    </tbody>
+  </table>
+
+  <h2 class="sub">9.2 Variáveis de configuração rápida</h2>
+  <pre><span class="c">// server/routes/tasks.js</span>
+estimated_time || <span class="f">5400</span>     <span class="c">// tempo padrão em segundos (5400 = 1h30)</span>
+
+<span class="c">// server/middleware/auth.js</span>
+<span class="k">const</span> JWT_SECRET = process.env.JWT_SECRET || <span class="s">'...'</span>
+
+<span class="c">// server/routes/auth.js</span>
+jwt.sign({ id }, JWT_SECRET, { expiresIn: <span class="s">'7d'</span> })
+
+<span class="c">// src/components/FloatingTimer.jsx</span>
+<span class="k">const</span> SIZE = <span class="f">88</span>   <span class="c">// tamanho do bubble em pixels</span>
+
+<span class="c">// src/components/TaskCard.jsx</span>
+remaining &lt; task.estimated_time * <span class="f">0.15</span>   <span class="c">// limiar "tempo baixo" (15%)</span>
+remaining &lt; task.estimated_time * <span class="f">0.05</span>   <span class="c">// limiar "crítico" (5%)</span></pre>
+
+  <h2 class="sub">9.3 Adicionando dependências</h2>
+  <div class="callout">
+    <strong>Frontend</strong> → rode dentro de <code>react/</code>: <code>npm install nome-do-pacote</code>
+  </div>
+  <div class="callout">
+    <strong>Backend</strong> → rode dentro de <code>react/server/</code>: <code>npm install nome-do-pacote</code>
+  </div>
+
+  <h2 class="sub">9.4 Segurança em produção</h2>
+  <div class="callout warn">
+    <strong>Antes de colocar em produção</strong>
+    1) Troque o <code>JWT_SECRET</code> no arquivo <code>server/.env</code> por uma string longa e aleatória.<br/>
+    2) Configure HTTPS.<br/>
+    3) Ajuste o CORS em <code>server/index.js</code> para aceitar apenas o domínio real.<br/>
+    4) Faça backup periódico do arquivo <code>server/tasks.db</code>.
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════
+     10. COMO RODAR
+═══════════════════════════════════════════════════════ -->
+<section id="rodando">
+  <h1 class="sec">10. Como Rodar o Projeto</h1>
+
+  <h2 class="sub">10.1 Primeira execução</h2>
+  <pre><span class="c"># Instalar dependências do frontend</span>
+cd react
+npm install
+
+<span class="c"># Instalar dependências do backend</span>
+cd server
+npm install
+cd ..</pre>
+
+  <h2 class="sub">10.2 Rodar em desenvolvimento (recomendado)</h2>
+  <pre><span class="c"># Um único comando sobe backend (3001) + frontend (5173)</span>
+cd react
+npm run start</pre>
+  <p>Acesse: <strong>http://localhost:5173</strong></p>
+
+  <h2 class="sub">10.3 Rodar separadamente (debugging)</h2>
+  <pre><span class="c"># Terminal 1 — backend</span>
+cd react/server
+node --watch index.js
+
+<span class="c"># Terminal 2 — frontend</span>
+cd react
+npm run dev</pre>
+
+  <h2 class="sub">10.4 Gerar build de produção</h2>
+  <pre>cd react
+npm run build
+<span class="c"># Arquivos gerados em react/dist/</span></pre>
+
+  <h2 class="sub">10.5 Scripts disponíveis</h2>
+  <table>
+    <thead><tr><th>Comando</th><th>O que faz</th></tr></thead>
+    <tbody>
+      <tr><td>npm run start</td><td>Sobe backend + frontend simultaneamente</td></tr>
+      <tr><td>npm run dev</td><td>Só o frontend (Vite)</td></tr>
+      <tr><td>npm run server</td><td>Só o backend (Node.js)</td></tr>
+      <tr><td>npm run build</td><td>Compila o frontend para produção</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout green">
+    <strong>Tudo funcionando?</strong>
+    Ao acessar http://localhost:5173 você verá a tela de login do Jarvis. Crie uma conta, faça login, e comece a gerenciar suas tarefas. Para testar o PiP, crie uma tarefa, inicie o timer, passe o mouse no bubble e clique no ícone de pop-out (Chrome/Edge 116+ necessário).
+  </div>
+</section>
+
+<hr/>
+
+<footer>
+  <p><strong>Jarvis — Task Manager</strong> · Documentação Técnica v1.0</p>
+  <p style="margin-top:4px">Para gerar o PDF: abra este arquivo no Chrome → Ctrl+P → Destino: "Salvar como PDF" → Salvar</p>
+</footer>
+
+</body>
+</html>
