@@ -2,7 +2,7 @@ import { Send } from 'lucide-react';
 import { useState } from 'react';
 import api from '../services/api';
 
-export default function ChatPanel({ category, scope, onTaskCreated }) {
+export default function ChatPanel({ category, scope, project, onTaskCreated }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,6 +22,7 @@ export default function ChatPanel({ category, scope, onTaskCreated }) {
         messages: nextMessages,
         category,
         scope,
+        project,
       });
       setMessages(ms => [...ms, { role: 'assistant', content: data.reply }]);
       if (data.taskCreated) onTaskCreated?.();

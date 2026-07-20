@@ -1,6 +1,8 @@
 import { AlertTriangle, Check, Pencil, Plus, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import AiSummaryCard from '../components/AiSummaryCard';
+import Avatar from '../components/Avatar';
 import ChatPanel from '../components/ChatPanel';
 import MetricCard from '../components/MetricCard';
 import TaskCard from '../components/TaskCard';
@@ -11,6 +13,7 @@ import { useProfile } from '../contexts/ProfileContext';
 import api from '../services/api';
 
 export default function GroupPage() {
+  const { groupId, projectId } = useParams();
   const { profileData } = useProfile();
   const category = profileData?.category;
   // Sivraj (pessoal) não tem conceito de compartilhamento — só Jarvis (trabalho) tem um pool de equipe
@@ -20,6 +23,8 @@ export default function GroupPage() {
 
   const [tasks, setTasks] = useState([]);
   const [metrics, setMetrics] = useState(null);
+  const [project, setProject] = useState(null);
+  const [group, setGroup] = useState(null);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
@@ -36,17 +41,31 @@ export default function GroupPage() {
     setLoading(true);
     try {
       const [tasksRes, metricsRes] = await Promise.all([
-        api.get('/tasks', { params: { category, scope } }),
-        api.get('/dashboard/metrics', { params: { category, scope } }),
+        api.get('/tasks', { params: { category, scope, group: groupId, project: projectId } }),
+        api.get('/dashboard/metrics', { params: { category, scope, group: groupId, project: projectId } }),
       ]);
       setTasks(tasksRes.data);
       setMetrics(metricsRes.data);
     } finally {
       setLoading(false);
     }
-  }, [category, scope]);
+  }, [category, scope, groupId, projectId]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  useEffect(() => {
+    if (!projectId) { setProject(null); return; }
+    api.get('/projects').then(({ data }) => {
+      setProject(data.find(p => String(p.id) === String(projectId)) || null);
+    }).catch(() => {});
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!groupId) { setGroup(null); return; }
+    api.get('/groups').then(({ data }) => {
+      setGroup(data.find(g => String(g.id) === String(groupId)) || null);
+    }).catch(() => {});
+  }, [groupId]);
 
   function openCreate() {
     setEditingTask(null);
@@ -62,11 +81,11 @@ export default function GroupPage() {
     if (editingTask) {
       const { data } = await api.put(`/tasks/${editingTask.id}`, form);
       setTasks(ts => ts.map(t => t.id === data.id ? data : t));
-    } else {
-      const { data } = await api.post('/tasks', { ...form, category });
-      setTasks(ts => [data, ...ts]);
+      return data;
     }
-    setModalOpen(false);
+    const { data } = await api.post('/tasks', { ...form, category });
+    setTasks(ts => [data, ...ts]);
+    return data;
   }
 
   async function handleDelete(id) {
@@ -80,13 +99,22 @@ export default function GroupPage() {
   }
 
   function startEditName() {
-    setNameDraft(groupName);
+    setNameDraft(groupId ? (group?.name || '') : groupName);
     setEditingName(true);
   }
 
   async function saveName() {
     const name = nameDraft.trim();
-    if (name && name !== groupName) await updateGroupName(name);
+    if (name) {
+      if (groupId) {
+        if (name !== group?.name) {
+          const { data } = await api.put(`/groups/${groupId}`, { name });
+          setGroup(data);
+        }
+      } else if (name !== groupName) {
+        await updateGroupName(name);
+      }
+    }
     setEditingName(false);
   }
 
@@ -112,7 +140,9 @@ export default function GroupPage() {
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex items-center justify-between mb-2 flex-wrap gap-3">
         <div>
-          {editingName ? (
+          {projectId ? (
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{project?.name || 'Projeto'}</h2>
+          ) : editingName ? (
             <div className="flex items-center gap-2">
               <input
                 autoFocus
@@ -134,7 +164,9 @@ export default function GroupPage() {
             </div>
           ) : (
             <div className="flex items-center gap-2 group">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{groupName}</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                {groupId ? (group?.name || 'Grupo') : groupName}
+              </h2>
               <button
                 onClick={startEditName}
                 className="p-1 rounded-lg text-gray-300 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 dark:text-white/20 dark:hover:text-blue-400 transition-colors opacity-0 group-hover:opacity-100"
@@ -144,9 +176,19 @@ export default function GroupPage() {
               </button>
             </div>
           )}
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            Sua central de tarefas, prazos e métricas
-          </p>
+          {projectId && project?.participants ? (
+            <div className="flex items-center gap-1.5 mt-1">
+              {project.participants.map(p => <Avatar key={p.id} name={p.name} size="xs" />)}
+            </div>
+          ) : !projectId && groupId && group?.participants ? (
+            <div className="flex items-center gap-1.5 mt-1">
+              {group.participants.map(p => <Avatar key={p.id} name={p.name} size="xs" />)}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+              Sua central de tarefas, prazos e métricas
+            </p>
+          )}
         </div>
         <button
           onClick={openCreate}
@@ -156,7 +198,7 @@ export default function GroupPage() {
         </button>
       </div>
 
-      <AiSummaryCard category={category} scope={scope} />
+      <AiSummaryCard category={category} scope={scope} group={groupId} project={projectId} />
 
       {metrics && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -218,7 +260,7 @@ export default function GroupPage() {
           <span className="text-sm font-semibold text-gray-900 dark:text-white">Assistente</span>
         </div>
         <div className="flex-1 min-h-0">
-          <ChatPanel category={category} scope={scope} onTaskCreated={fetchAll} />
+          <ChatPanel category={category} scope={scope} group={groupId} project={projectId} onTaskCreated={fetchAll} />
         </div>
       </div>
 
@@ -226,7 +268,8 @@ export default function GroupPage() {
         <TaskModal
           task={editingTask}
           defaultCategory={category}
-          forceShared={category === 'trabalho'}
+          defaultGroupId={groupId || (category === 'trabalho' ? 'tercon' : undefined)}
+          defaultProjectId={projectId}
           onSave={handleSave}
           onClose={() => setModalOpen(false)}
         />

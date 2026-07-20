@@ -12,12 +12,22 @@ function todayContext() {
   return `Hoje é ${formatted} (${now.toISOString().slice(0, 10)}). Use essa data como referência pra resolver prazos relativos (ex: "sexta-feira", "amanhã", "semana que vem").`;
 }
 
-function taskSnapshot(userId, category, scope) {
+function taskSnapshot(userId, category, scope, projectId, groupId) {
   let query = 'SELECT * FROM tasks WHERE 1=1';
   const params = [];
   if (category === 'trabalho' && scope === 'team') {
     query += ' AND category = ? AND shared_with_team = 1';
     params.push('trabalho');
+    if (groupId) {
+      query += ' AND group_id = ?';
+      params.push(groupId);
+    } else {
+      query += ' AND group_id IS NULL';
+    }
+    if (projectId) {
+      query += ' AND project_id = ?';
+      params.push(projectId);
+    }
   } else if (category === 'trabalho') {
     query += ' AND category = ? AND user_id = ?';
     params.push('trabalho', userId);
@@ -35,26 +45,32 @@ function taskSnapshot(userId, category, scope) {
     db.prepare('SELECT task_id, COUNT(*) as total, SUM(done) as done FROM task_steps GROUP BY task_id').all()
       .map(s => [s.task_id, s])
   );
+  const assigneesMap = new Map();
+  db.prepare('SELECT task_id, user_id FROM task_assignees').all().forEach(row => {
+    const list = assigneesMap.get(row.task_id) || [];
+    list.push(usersMap.get(row.user_id));
+    assigneesMap.set(row.task_id, list);
+  });
   const now = Math.floor(Date.now() / 1000);
 
   return tasks.map(t => {
     const steps = stepsMap.get(t.id);
     const stepsText = steps ? `${steps.done}/${steps.total} etapas` : 'sem etapas';
-    const assignee = t.assigned_to ? usersMap.get(t.assigned_to) : null;
+    const assignees = assigneesMap.get(t.id);
     const hours = ((t.real_time || 0) / 3600).toFixed(1);
     let dueText = '';
     if (t.due_date) {
       const dateStr = new Date(t.due_date * 1000).toISOString().slice(0, 10);
       dueText = t.due_date < now && t.status !== 'concluida' ? ` · ATRASADA (prazo era ${dateStr})` : ` · prazo ${dateStr}`;
     }
-    return `- [${t.status}] "${t.title}"${assignee ? ` (atribuída a ${assignee})` : ''} · ${stepsText} · ${hours}h gastas${dueText}`;
+    return `- [${t.status}] "${t.title}"${assignees?.length ? ` (atribuída a ${assignees.join(', ')})` : ''} · ${stepsText} · ${hours}h gastas${dueText}`;
   }).join('\n');
 }
 
 router.get('/summary', async (req, res) => {
   const category = req.query.category === 'pessoal' ? 'pessoal' : 'trabalho';
   const scope = req.query.scope === 'team' ? 'team' : undefined;
-  const snapshot = taskSnapshot(req.userId, category, scope);
+  const snapshot = taskSnapshot(req.userId, category, scope, req.query.project, req.query.group);
 
   try {
     const summary = await ask({
@@ -75,21 +91,23 @@ ${snapshot}`,
 });
 
 router.post('/chat', async (req, res) => {
-  const { messages, category, scope: rawScope } = req.body;
+  const { messages, category, scope: rawScope, project, group } = req.body;
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'Mensagens são obrigatórias' });
   }
 
   const cat = category === 'pessoal' ? 'pessoal' : 'trabalho';
   const scope = rawScope === 'team' ? 'team' : undefined;
-  const snapshot = taskSnapshot(req.userId, cat, scope);
+  const snapshot = taskSnapshot(req.userId, cat, scope, project, group);
 
   async function onCreateTask(input) {
     const due_date = input.due_date ? Math.floor(new Date(input.due_date).getTime() / 1000) : null;
     const shared_with_team = cat === 'trabalho' && scope === 'team' ? 1 : 0;
+    const projectId = shared_with_team && project ? project : null;
+    const groupId = shared_with_team && group ? group : null;
     const result = db.prepare(
-      'INSERT INTO tasks (user_id, title, description, category, due_date, shared_with_team) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(req.userId, input.title, input.description || '', cat, due_date, shared_with_team);
+      'INSERT INTO tasks (user_id, title, description, category, due_date, shared_with_team, project_id, group_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(req.userId, input.title, input.description || '', cat, due_date, shared_with_team, projectId, groupId);
     return { id: result.lastInsertRowid, title: input.title };
   }
 

@@ -70,11 +70,11 @@ export default function TasksPage() {
     if (editingTask) {
       const { data } = await api.put(`/tasks/${editingTask.id}`, form);
       setTasks(ts => ts.map(t => t.id === data.id ? data : t));
-    } else {
-      const { data } = await api.post('/tasks', { ...form, category });
-      setTasks(ts => [data, ...ts]);
+      return data;
     }
-    setModalOpen(false);
+    const { data } = await api.post('/tasks', { ...form, category });
+    setTasks(ts => [data, ...ts]);
+    return data;
   }
 
   async function handleDelete(id) {

@@ -11,6 +11,8 @@ const adminRoutes = require('./routes/admin');
 const teamRoutes = require('./routes/team');
 const aiRoutes = require('./routes/ai');
 const settingsRoutes = require('./routes/settings');
+const projectsRoutes = require('./routes/projects');
+const groupsRoutes = require('./routes/groups');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -27,6 +29,8 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/team', teamRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/projects', projectsRoutes);
+app.use('/api/groups', groupsRoutes);
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);

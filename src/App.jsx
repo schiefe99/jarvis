@@ -36,6 +36,9 @@ export default function App() {
       <Route path="/set-password" element={<SetPassword />} />
       <Route path="/select-profile" element={<PrivateRoute><ProfileSelect /></PrivateRoute>} />
       <Route path="/group"       element={<Private><GroupPage /></Private>} />
+      <Route path="/group/project/:projectId" element={<Private><GroupPage /></Private>} />
+      <Route path="/group/g/:groupId" element={<Private><GroupPage /></Private>} />
+      <Route path="/group/g/:groupId/project/:projectId" element={<Private><GroupPage /></Private>} />
       <Route path="/tasks"       element={<Private><TasksPage /></Private>} />
       <Route path="/dashboard"   element={<Private><Dashboard /></Private>} />
       <Route path="/finance"     element={<SivrajOnly><FinancePage /></SivrajOnly>} />

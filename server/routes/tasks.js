@@ -5,8 +5,17 @@ const { authMiddleware } = require('../middleware/auth');
 const router = express.Router();
 router.use(authMiddleware);
 
+const MAX_STEPS = 10;
+
 function attachSteps(task) {
   task.steps = db.prepare('SELECT * FROM task_steps WHERE task_id = ? ORDER BY position, id').all(task.id);
+  return task;
+}
+
+function attachAssignees(task) {
+  task.assignees = db.prepare(
+    'SELECT u.id, u.name FROM task_assignees ta JOIN users u ON u.id = ta.user_id WHERE ta.task_id = ?'
+  ).all(task.id);
   return task;
 }
 
@@ -17,27 +26,75 @@ function usersMap() {
 
 function attachNames(task, map) {
   task.created_by_name = map.get(task.user_id) || null;
-  task.assigned_to_name = task.assigned_to ? (map.get(task.assigned_to) || null) : null;
   return task;
+}
+
+function attachProjectName(task) {
+  task.project_name = task.project_id
+    ? (db.prepare('SELECT name FROM projects WHERE id = ?').get(task.project_id)?.name || null)
+    : null;
+  return task;
+}
+
+function attachGroupName(task) {
+  task.group_name = task.group_id
+    ? (db.prepare('SELECT name FROM work_groups WHERE id = ?').get(task.group_id)?.name || null)
+    : null;
+  return task;
+}
+
+function hydrate(task, map) {
+  return attachGroupName(attachProjectName(attachAssignees(attachNames(attachSteps(task), map))));
+}
+
+function isProjectParticipant(projectId, userId) {
+  return !!db.prepare('SELECT 1 FROM project_participants WHERE project_id = ? AND user_id = ?').get(projectId, userId);
+}
+
+function isGroupParticipant(groupId, userId) {
+  return !!db.prepare('SELECT 1 FROM work_group_participants WHERE group_id = ? AND user_id = ?').get(groupId, userId);
 }
 
 function getAccessibleTask(id, userId) {
   const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
   if (!task) return null;
   if (task.category === 'pessoal' && task.user_id !== userId) return null;
+  if (task.category === 'trabalho' && task.project_id) {
+    if (task.user_id !== userId && !isProjectParticipant(task.project_id, userId)) return null;
+    return task;
+  }
+  if (task.category === 'trabalho' && task.shared_with_team && task.group_id) {
+    // pertence a um grupo novo — só participantes daquele grupo
+    if (task.user_id !== userId && !isGroupParticipant(task.group_id, userId)) return null;
+    return task;
+  }
+  if (task.category === 'trabalho' && task.shared_with_team && !task.group_id) {
+    return task; // Tercon: qualquer membro do time, exatamente como hoje
+  }
   if (task.category === 'trabalho' && !task.shared_with_team && task.user_id !== userId) return null;
   return task;
 }
 
 router.get('/', (req, res) => {
-  const { category, status, search, scope } = req.query;
+  const { category, status, search, scope, project, group } = req.query;
   let query = 'SELECT * FROM tasks WHERE 1=1';
   const params = [];
 
   if (category === 'trabalho' && scope === 'team') {
-    // Tercon: shared team/company pool, visible to every member regardless of who created it
+    // shared team/company pool, visible to every member regardless of who created it —
+    // sem "group", é o Tercon (group_id IS NULL); com "group", é um grupo novo isolado
     query += ' AND category = ? AND shared_with_team = 1';
     params.push('trabalho');
+    if (group) {
+      query += ' AND group_id = ?';
+      params.push(group);
+    } else {
+      query += ' AND group_id IS NULL';
+    }
+    if (project) {
+      query += ' AND project_id = ?';
+      params.push(project);
+    }
   } else if (category === 'trabalho') {
     // Trabalho: personal work list — only what this user created and hasn't allocated to the group
     query += ' AND category = ? AND user_id = ? AND (shared_with_team IS NULL OR shared_with_team = 0)';
@@ -62,27 +119,55 @@ router.get('/', (req, res) => {
 
   query += ' ORDER BY created_at DESC';
   const map = usersMap();
-  const tasks = db.prepare(query).all(...params).map(t => attachNames(attachSteps(t), map));
+  const tasks = db.prepare(query).all(...params).map(t => hydrate(t, map));
   res.json(tasks);
 });
 
 router.post('/', (req, res) => {
-  const { title, description, category, assigned_to, due_date, shared_with_team } = req.body;
+  const { title, description, category, assignee_ids, due_date, shared_with_team, project_id, group_id } = req.body;
 
   if (!title || !category) {
     return res.status(400).json({ error: 'Título e categoria são obrigatórios' });
   }
 
+  const assignees = Array.isArray(assignee_ids) ? assignee_ids.filter(id => typeof id === 'number') : [];
+
+  let projectId = null;
+  let groupId = null;
+  if (category === 'trabalho' && project_id) {
+    if (!isProjectParticipant(project_id, req.userId)) {
+      return res.status(400).json({ error: 'Você não participa desse projeto' });
+    }
+    projectId = project_id;
+    // grupo é herdado do projeto — nunca confia num group_id vindo direto do client junto com project_id
+    groupId = db.prepare('SELECT group_id FROM projects WHERE id = ?').get(projectId)?.group_id || null;
+  } else if (category === 'trabalho' && group_id) {
+    if (!isGroupParticipant(group_id, req.userId)) {
+      return res.status(400).json({ error: 'Você não participa desse grupo' });
+    }
+    groupId = group_id;
+  }
+
   let shared = category === 'trabalho' && shared_with_team ? 1 : 0;
-  // atribuir a outra pessoa exige que o ticket seja compartilhado, senão a pessoa não conseguiria vê-lo
-  if (category === 'trabalho' && assigned_to && assigned_to !== req.userId) shared = 1;
+  // atribuir a outra pessoa ou vincular a um projeto exige que o ticket seja compartilhado,
+  // senão quem foi atribuído não conseguiria nem ver a própria tarefa
+  if (category === 'trabalho' && assignees.some(id => id !== req.userId)) shared = 1;
+  if (projectId || groupId) shared = 1;
 
   const result = db.prepare(
-    'INSERT INTO tasks (user_id, title, description, category, assigned_to, due_date, shared_with_team) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  ).run(req.userId, title, description || '', category, assigned_to || null, due_date || null, shared);
+    'INSERT INTO tasks (user_id, title, description, category, due_date, shared_with_team, project_id, group_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(req.userId, title, description || '', category, due_date || null, shared, projectId, groupId);
 
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(result.lastInsertRowid);
-  res.status(201).json(attachNames(attachSteps(task), usersMap()));
+  const taskId = result.lastInsertRowid;
+  const insertAssignee = db.prepare('INSERT OR IGNORE INTO task_assignees (task_id, user_id) VALUES (?, ?)');
+  const insertParticipant = db.prepare('INSERT OR IGNORE INTO project_participants (project_id, user_id) VALUES (?, ?)');
+  for (const userId of assignees) {
+    insertAssignee.run(taskId, userId);
+    if (projectId) insertParticipant.run(projectId, userId);
+  }
+
+  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
+  res.status(201).json(hydrate(task, usersMap()));
 });
 
 router.put('/:id', (req, res) => {
@@ -93,8 +178,8 @@ router.put('/:id', (req, res) => {
   }
 
   const updated = { ...task };
-  // category é imutável após a criação — evita que uma tarefa cruze entre Jarvis (trabalho, compartilhado) e Sivraj (pessoal, privado)
-  const allowed = ['title', 'description', 'status', 'real_time', 'timer_active', 'timer_started_at', 'finished_at', 'assigned_to', 'due_date'];
+  // category e project_id são imutáveis após a criação
+  const allowed = ['title', 'description', 'status', 'real_time', 'timer_active', 'timer_started_at', 'finished_at', 'due_date'];
 
   for (const field of allowed) {
     if (field in req.body) {
@@ -110,28 +195,50 @@ router.put('/:id', (req, res) => {
     updated.finished_at = Math.floor(Date.now() / 1000);
   }
 
-  // atribuir a alguém diferente do criador promove o ticket pro pool compartilhado automaticamente,
-  // senão a pessoa atribuída não conseguiria nem ver a própria tarefa (getAccessibleTask bloquearia)
-  if (updated.category === 'trabalho' && updated.assigned_to && updated.assigned_to !== task.user_id) {
-    updated.shared_with_team = 1;
+  const assignees = Array.isArray(req.body.assignee_ids)
+    ? req.body.assignee_ids.filter(id => typeof id === 'number')
+    : null;
+
+  // atribuir a alguém diferente do criador promove automaticamente:
+  // com projeto, a pessoa vira participante do projeto; com grupo (sem projeto), vira participante do grupo;
+  // sem nenhum dos dois, é o Tercon — o ticket só vira compartilhado (comportamento de sempre)
+  if (assignees && updated.category === 'trabalho') {
+    const others = assignees.filter(id => id !== task.user_id);
+    if (others.length > 0) {
+      if (task.project_id) {
+        const insertParticipant = db.prepare('INSERT OR IGNORE INTO project_participants (project_id, user_id) VALUES (?, ?)');
+        others.forEach(id => insertParticipant.run(task.project_id, id));
+      } else if (task.group_id) {
+        const insertParticipant = db.prepare('INSERT OR IGNORE INTO work_group_participants (group_id, user_id) VALUES (?, ?)');
+        others.forEach(id => insertParticipant.run(task.group_id, id));
+      } else {
+        updated.shared_with_team = 1;
+      }
+    }
   }
 
   db.prepare(`
     UPDATE tasks SET
       title = ?, description = ?, category = ?, status = ?,
       real_time = ?, timer_active = ?,
-      timer_started_at = ?, finished_at = ?, assigned_to = ?, due_date = ?, shared_with_team = ?
+      timer_started_at = ?, finished_at = ?, due_date = ?, shared_with_team = ?
     WHERE id = ?
   `).run(
     updated.title, updated.description, updated.category, updated.status,
     updated.real_time, updated.timer_active,
-    updated.timer_started_at, updated.finished_at, updated.assigned_to || null, updated.due_date || null,
+    updated.timer_started_at, updated.finished_at, updated.due_date || null,
     updated.shared_with_team,
     req.params.id
   );
 
+  if (assignees) {
+    db.prepare('DELETE FROM task_assignees WHERE task_id = ?').run(task.id);
+    const insertAssignee = db.prepare('INSERT OR IGNORE INTO task_assignees (task_id, user_id) VALUES (?, ?)');
+    assignees.forEach(id => insertAssignee.run(task.id, id));
+  }
+
   const result = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
-  res.json(attachNames(attachSteps(result), usersMap()));
+  res.json(hydrate(result, usersMap()));
 });
 
 router.delete('/:id', (req, res) => {
@@ -155,11 +262,16 @@ router.post('/:id/steps', (req, res) => {
     return res.status(400).json({ error: 'Título da etapa é obrigatório' });
   }
 
+  const { count } = db.prepare('SELECT COUNT(*) as count FROM task_steps WHERE task_id = ?').get(task.id);
+  if (count >= MAX_STEPS) {
+    return res.status(400).json({ error: `Limite de ${MAX_STEPS} itens por tarefa` });
+  }
+
   const { maxPosition } = db.prepare('SELECT COALESCE(MAX(position), -1) as maxPosition FROM task_steps WHERE task_id = ?').get(task.id);
   db.prepare('INSERT INTO task_steps (task_id, title, position) VALUES (?, ?, ?)')
     .run(task.id, title.trim(), maxPosition + 1);
 
-  res.status(201).json(attachNames(attachSteps(task), usersMap()));
+  res.status(201).json(hydrate(task, usersMap()));
 });
 
 router.put('/:id/steps/:stepId', (req, res) => {
@@ -180,7 +292,7 @@ router.put('/:id/steps/:stepId', (req, res) => {
   db.prepare('UPDATE task_steps SET title = ?, done = ? WHERE id = ?')
     .run(updated.title, updated.done, step.id);
 
-  res.json(attachNames(attachSteps(task), usersMap()));
+  res.json(hydrate(task, usersMap()));
 });
 
 router.delete('/:id/steps/:stepId', (req, res) => {
@@ -190,7 +302,7 @@ router.delete('/:id/steps/:stepId', (req, res) => {
   }
 
   db.prepare('DELETE FROM task_steps WHERE id = ? AND task_id = ?').run(req.params.stepId, task.id);
-  res.json(attachNames(attachSteps(task), usersMap()));
+  res.json(hydrate(task, usersMap()));
 });
 
 module.exports = router;

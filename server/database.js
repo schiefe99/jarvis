@@ -94,6 +94,38 @@ db.exec(`
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    created_by INTEGER NOT NULL REFERENCES users(id),
+    created_at INTEGER DEFAULT (unixepoch())
+  );
+
+  CREATE TABLE IF NOT EXISTS project_participants (
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    PRIMARY KEY (project_id, user_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS task_assignees (
+    task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    PRIMARY KEY (task_id, user_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS work_groups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    created_by INTEGER NOT NULL REFERENCES users(id),
+    created_at INTEGER DEFAULT (unixepoch())
+  );
+
+  CREATE TABLE IF NOT EXISTS work_group_participants (
+    group_id INTEGER NOT NULL REFERENCES work_groups(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    PRIMARY KEY (group_id, user_id)
+  );
 `);
 
 // Migrations — ADD COLUMN only if it doesn't exist yet
@@ -114,6 +146,24 @@ try {
   // então já nasce marcado como compartilhado — só tickets novos criados depois desta mudança
   // começam pessoais por padrão.
   db.exec("UPDATE tasks SET shared_with_team = 1 WHERE category = 'trabalho'");
+} catch { /* column already exists — migration already ran */ }
+
+// project_id ties a shared task to a project; task_assignees replaces the old single assigned_to column
+try {
+  db.exec("ALTER TABLE tasks ADD COLUMN project_id INTEGER REFERENCES projects(id)");
+  // migra o único responsável de hoje (assigned_to) pra tabela de múltiplos responsáveis,
+  // preservando quem já estava atribuído antes desta mudança
+  db.exec(`
+    INSERT INTO task_assignees (task_id, user_id)
+    SELECT id, assigned_to FROM tasks WHERE assigned_to IS NOT NULL
+  `);
+} catch { /* column already exists — migration already ran */ }
+
+// work_groups adds extra parallel, independent shared spaces alongside the default Tercon space.
+// NULL group_id keeps meaning "Tercon" exactly as before — no backfill needed, existing data is untouched.
+try {
+  db.exec("ALTER TABLE tasks ADD COLUMN group_id INTEGER REFERENCES work_groups(id)");
+  db.exec("ALTER TABLE projects ADD COLUMN group_id INTEGER REFERENCES work_groups(id)");
 } catch { /* column already exists — migration already ran */ }
 
 // The oldest account becomes the team admin automatically

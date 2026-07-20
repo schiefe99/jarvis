@@ -1,8 +1,9 @@
-import { CalendarDays, CheckCircle2, Clock, ListChecks, Pause, Pencil, Play, Trash2, UserRound, Users } from 'lucide-react';
+import { CalendarDays, CheckCircle2, Clock, ListChecks, Pause, Pencil, Play, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useActiveTimer } from '../contexts/ActiveTimerContext';
 import { formatTime, useTimer } from '../hooks/useTimer';
 import api from '../services/api';
+import Avatar from './Avatar';
 import TaskDetailModal from './TaskDetailModal';
 
 const STATUS_STYLE = {
@@ -100,14 +101,19 @@ export default function TaskCard({ task, onUpdate, onDelete, onEdit }) {
               {task.category}
             </span>
             {task.category === 'trabalho' && task.shared_with_team && task.created_by_name && (
-              <span className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-white/60">
-                <Users size={11} /> {task.created_by_name}
-              </span>
+              <Avatar name={task.created_by_name} size="xs" />
             )}
-            {task.category === 'trabalho' && task.assigned_to_name && (
-              <span className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-white/60">
-                <UserRound size={11} /> {task.assigned_to_name}
-              </span>
+            {task.category === 'trabalho' && task.assignees?.length > 0 && (
+              <div className="flex items-center -space-x-1.5">
+                {task.assignees.slice(0, 3).map(a => (
+                  <Avatar key={a.id} name={a.name} size="xs" />
+                ))}
+                {task.assignees.length > 3 && (
+                  <span className="w-5 h-5 rounded-full bg-gray-200 dark:bg-white/10 text-gray-600 dark:text-white/60 text-[10px] font-semibold flex items-center justify-center flex-shrink-0">
+                    +{task.assignees.length - 3}
+                  </span>
+                )}
+              </div>
             )}
             {dueBadge && (
               <span className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${dueBadge.className}`}>

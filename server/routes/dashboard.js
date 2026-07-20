@@ -17,6 +17,16 @@ router.get('/metrics', (req, res) => {
   if (teamScope) {
     scopeFilter = 'AND category = ? AND shared_with_team = 1';
     scopeParams = ['trabalho'];
+    if (req.query.group) {
+      scopeFilter += ' AND group_id = ?';
+      scopeParams.push(req.query.group);
+    } else {
+      scopeFilter += ' AND group_id IS NULL';
+    }
+    if (req.query.project) {
+      scopeFilter += ' AND project_id = ?';
+      scopeParams.push(req.query.project);
+    }
   } else if (category) {
     scopeFilter = 'AND category = ? AND user_id = ?';
     scopeParams = [category, uid];

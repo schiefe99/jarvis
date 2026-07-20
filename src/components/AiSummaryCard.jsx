@@ -2,7 +2,7 @@ import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import api from '../services/api';
 
-export default function AiSummaryCard({ category, scope }) {
+export default function AiSummaryCard({ category, scope, project }) {
   const [summary, setSummary] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -11,7 +11,7 @@ export default function AiSummaryCard({ category, scope }) {
     setLoading(true);
     setError('');
     try {
-      const { data } = await api.get('/ai/summary', { params: { category, scope } });
+      const { data } = await api.get('/ai/summary', { params: { category, scope, project } });
       setSummary(data.summary);
     } catch (err) {
       setError(err.response?.status === 503 ? 'IA não configurada ainda' : 'Erro ao gerar resumo');

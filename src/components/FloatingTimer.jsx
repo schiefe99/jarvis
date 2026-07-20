@@ -85,6 +85,7 @@ export default function FloatingTimer() {
   const [pipWindow, setPipWindow] = useState(null);
   const [pipContainer, setPipContainer] = useState(null);
   const pipRef = useRef(null);
+  const pipSupported = typeof window !== 'undefined' && 'documentPictureInPicture' in window;
 
   useEffect(() => {
     function onResize() {
@@ -162,13 +163,7 @@ export default function FloatingTimer() {
       return;
     }
 
-    if (!('documentPictureInPicture' in window)) {
-      alert(
-        'Document Picture-in-Picture não é suportado neste navegador.\n' +
-        'Use Chrome 116+ ou Edge 116+ para este recurso.'
-      );
-      return;
-    }
+    if (!pipSupported) return;
 
     try {
       const pip = await window.documentPictureInPicture.requestWindow({
@@ -286,15 +281,17 @@ export default function FloatingTimer() {
             </div>
           </div>
 
-          {/* Pop-out button */}
-          <button
-            onMouseDown={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); togglePip(); }}
-            className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-gray-900 border border-gray-700 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 opacity-0 group-hover:opacity-100 transition-all shadow-lg z-10"
-            title="Abrir fora da página (Picture-in-Picture)"
-          >
-            <ExternalLink size={10} />
-          </button>
+          {/* Pop-out button — só aparece em navegadores com suporte a Document Picture-in-Picture (Chrome/Edge 116+) */}
+          {pipSupported && (
+            <button
+              onMouseDown={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); togglePip(); }}
+              className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-gray-900 border border-gray-700 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 opacity-0 group-hover:opacity-100 transition-all shadow-lg z-10"
+              title="Abrir fora da página (Picture-in-Picture)"
+            >
+              <ExternalLink size={10} />
+            </button>
+          )}
         </div>
       )}
 
