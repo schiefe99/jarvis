@@ -6,6 +6,14 @@ const { ask, chat } = require('../services/claude');
 const router = express.Router();
 router.use(authMiddleware);
 
+// Bloqueado por padrão: cada chamada gasta créditos da API. Só libera com AI_ENABLED=true no .env.
+router.use((req, res, next) => {
+  if (process.env.AI_ENABLED !== 'true') {
+    return res.status(403).json({ error: 'Pegue as credenciais com o adm', code: 'AI_DISABLED' });
+  }
+  next();
+});
+
 function todayContext() {
   const now = new Date();
   const formatted = now.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });

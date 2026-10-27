@@ -1,8 +1,21 @@
-import { Send } from 'lucide-react';
+import { Lock, Send } from 'lucide-react';
 import { useState } from 'react';
 import api from '../services/api';
+import { AI_ENABLED, AI_LOCKED_MESSAGE } from '../config/ai';
 
-export default function ChatPanel({ category, scope, project, onTaskCreated }) {
+export default function ChatPanel(props) {
+  if (!AI_ENABLED) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-2 p-6 text-center">
+        <Lock size={20} className="text-gray-400 dark:text-gray-500" />
+        <p className="text-sm text-gray-500 dark:text-gray-400">{AI_LOCKED_MESSAGE}</p>
+      </div>
+    );
+  }
+  return <ChatPanelContent {...props} />;
+}
+
+function ChatPanelContent({ category, scope, project, onTaskCreated }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,7 +40,8 @@ export default function ChatPanel({ category, scope, project, onTaskCreated }) {
       setMessages(ms => [...ms, { role: 'assistant', content: data.reply }]);
       if (data.taskCreated) onTaskCreated?.();
     } catch (err) {
-      const text = err.response?.status === 503 ? 'IA não configurada ainda.' : 'Erro ao responder.';
+      const status = err.response?.status;
+      const text = status === 403 ? AI_LOCKED_MESSAGE : status === 503 ? 'IA não configurada ainda.' : 'Erro ao responder.';
       setMessages(ms => [...ms, { role: 'assistant', content: text }]);
     } finally {
       setLoading(false);
