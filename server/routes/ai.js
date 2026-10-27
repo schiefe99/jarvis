@@ -12,7 +12,7 @@ function todayContext() {
   return `Hoje é ${formatted} (${now.toISOString().slice(0, 10)}). Use essa data como referência pra resolver prazos relativos (ex: "sexta-feira", "amanhã", "semana que vem").`;
 }
 
-function taskSnapshot(userId, category, scope, projectId, groupId) {
+async function taskSnapshot(userId, category, scope, projectId, groupId) {
   let query = 'SELECT * FROM tasks WHERE 1=1';
   const params = [];
   if (category === 'trabalho' && scope === 'team') {
@@ -36,17 +36,17 @@ function taskSnapshot(userId, category, scope, projectId, groupId) {
     params.push(userId, 'pessoal');
   }
   query += ' ORDER BY created_at DESC';
-  const tasks = db.prepare(query).all(...params);
+  const tasks = await db.prepare(query).all(...params);
 
   if (tasks.length === 0) return 'Nenhuma tarefa cadastrada.';
 
-  const usersMap = new Map(db.prepare('SELECT id, name FROM users').all().map(u => [u.id, u.name]));
+  const usersMap = new Map((await db.prepare('SELECT id, name FROM users').all()).map(u => [u.id, u.name]));
   const stepsMap = new Map(
-    db.prepare('SELECT task_id, COUNT(*) as total, SUM(done) as done FROM task_steps GROUP BY task_id').all()
+    (await db.prepare('SELECT task_id, COUNT(*) as total, SUM(done) as done FROM task_steps GROUP BY task_id').all())
       .map(s => [s.task_id, s])
   );
   const assigneesMap = new Map();
-  db.prepare('SELECT task_id, user_id FROM task_assignees').all().forEach(row => {
+  (await db.prepare('SELECT task_id, user_id FROM task_assignees').all()).forEach(row => {
     const list = assigneesMap.get(row.task_id) || [];
     list.push(usersMap.get(row.user_id));
     assigneesMap.set(row.task_id, list);
@@ -70,7 +70,7 @@ function taskSnapshot(userId, category, scope, projectId, groupId) {
 router.get('/summary', async (req, res) => {
   const category = req.query.category === 'pessoal' ? 'pessoal' : 'trabalho';
   const scope = req.query.scope === 'team' ? 'team' : undefined;
-  const snapshot = taskSnapshot(req.userId, category, scope, req.query.project, req.query.group);
+  const snapshot = await taskSnapshot(req.userId, category, scope, req.query.project, req.query.group);
 
   try {
     const summary = await ask({
@@ -98,14 +98,14 @@ router.post('/chat', async (req, res) => {
 
   const cat = category === 'pessoal' ? 'pessoal' : 'trabalho';
   const scope = rawScope === 'team' ? 'team' : undefined;
-  const snapshot = taskSnapshot(req.userId, cat, scope, project, group);
+  const snapshot = await taskSnapshot(req.userId, cat, scope, project, group);
 
   async function onCreateTask(input) {
     const due_date = input.due_date ? Math.floor(new Date(input.due_date).getTime() / 1000) : null;
     const shared_with_team = cat === 'trabalho' && scope === 'team' ? 1 : 0;
     const projectId = shared_with_team && project ? project : null;
     const groupId = shared_with_team && group ? group : null;
-    const result = db.prepare(
+    const result = await db.prepare(
       'INSERT INTO tasks (user_id, title, description, category, due_date, shared_with_team, project_id, group_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
     ).run(req.userId, input.title, input.description || '', cat, due_date, shared_with_team, projectId, groupId);
     return { id: result.lastInsertRowid, title: input.title };

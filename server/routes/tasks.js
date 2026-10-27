@@ -7,20 +7,20 @@ router.use(authMiddleware);
 
 const MAX_STEPS = 10;
 
-function attachSteps(task) {
-  task.steps = db.prepare('SELECT * FROM task_steps WHERE task_id = ? ORDER BY position, id').all(task.id);
+async function attachSteps(task) {
+  task.steps = await db.prepare('SELECT * FROM task_steps WHERE task_id = ? ORDER BY position, id').all(task.id);
   return task;
 }
 
-function attachAssignees(task) {
-  task.assignees = db.prepare(
+async function attachAssignees(task) {
+  task.assignees = await db.prepare(
     'SELECT u.id, u.name FROM task_assignees ta JOIN users u ON u.id = ta.user_id WHERE ta.task_id = ?'
   ).all(task.id);
   return task;
 }
 
-function usersMap() {
-  const rows = db.prepare('SELECT id, name FROM users').all();
+async function usersMap() {
+  const rows = await db.prepare('SELECT id, name FROM users').all();
   return new Map(rows.map(u => [u.id, u.name]));
 }
 
@@ -29,43 +29,48 @@ function attachNames(task, map) {
   return task;
 }
 
-function attachProjectName(task) {
+async function attachProjectName(task) {
   task.project_name = task.project_id
-    ? (db.prepare('SELECT name FROM projects WHERE id = ?').get(task.project_id)?.name || null)
+    ? ((await db.prepare('SELECT name FROM projects WHERE id = ?').get(task.project_id))?.name || null)
     : null;
   return task;
 }
 
-function attachGroupName(task) {
+async function attachGroupName(task) {
   task.group_name = task.group_id
-    ? (db.prepare('SELECT name FROM work_groups WHERE id = ?').get(task.group_id)?.name || null)
+    ? ((await db.prepare('SELECT name FROM work_groups WHERE id = ?').get(task.group_id))?.name || null)
     : null;
   return task;
 }
 
-function hydrate(task, map) {
-  return attachGroupName(attachProjectName(attachAssignees(attachNames(attachSteps(task), map))));
+async function hydrate(task, map) {
+  await attachSteps(task);
+  attachNames(task, map);
+  await attachAssignees(task);
+  await attachProjectName(task);
+  await attachGroupName(task);
+  return task;
 }
 
-function isProjectParticipant(projectId, userId) {
-  return !!db.prepare('SELECT 1 FROM project_participants WHERE project_id = ? AND user_id = ?').get(projectId, userId);
+async function isProjectParticipant(projectId, userId) {
+  return !!await db.prepare('SELECT 1 FROM project_participants WHERE project_id = ? AND user_id = ?').get(projectId, userId);
 }
 
-function isGroupParticipant(groupId, userId) {
-  return !!db.prepare('SELECT 1 FROM work_group_participants WHERE group_id = ? AND user_id = ?').get(groupId, userId);
+async function isGroupParticipant(groupId, userId) {
+  return !!await db.prepare('SELECT 1 FROM work_group_participants WHERE group_id = ? AND user_id = ?').get(groupId, userId);
 }
 
-function getAccessibleTask(id, userId) {
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+async function getAccessibleTask(id, userId) {
+  const task = await db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
   if (!task) return null;
   if (task.category === 'pessoal' && task.user_id !== userId) return null;
   if (task.category === 'trabalho' && task.project_id) {
-    if (task.user_id !== userId && !isProjectParticipant(task.project_id, userId)) return null;
+    if (task.user_id !== userId && !(await isProjectParticipant(task.project_id, userId))) return null;
     return task;
   }
   if (task.category === 'trabalho' && task.shared_with_team && task.group_id) {
     // pertence a um grupo novo — só participantes daquele grupo
-    if (task.user_id !== userId && !isGroupParticipant(task.group_id, userId)) return null;
+    if (task.user_id !== userId && !(await isGroupParticipant(task.group_id, userId))) return null;
     return task;
   }
   if (task.category === 'trabalho' && task.shared_with_team && !task.group_id) {
@@ -75,7 +80,7 @@ function getAccessibleTask(id, userId) {
   return task;
 }
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const { category, status, search, scope, project, group } = req.query;
   let query = 'SELECT * FROM tasks WHERE 1=1';
   const params = [];
@@ -118,12 +123,13 @@ router.get('/', (req, res) => {
   }
 
   query += ' ORDER BY created_at DESC';
-  const map = usersMap();
-  const tasks = db.prepare(query).all(...params).map(t => hydrate(t, map));
+  const map = await usersMap();
+  const rows = await db.prepare(query).all(...params);
+  const tasks = await Promise.all(rows.map(t => hydrate(t, map)));
   res.json(tasks);
 });
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { title, description, category, assignee_ids, due_date, shared_with_team, project_id, group_id } = req.body;
 
   if (!title || !category) {
@@ -135,14 +141,14 @@ router.post('/', (req, res) => {
   let projectId = null;
   let groupId = null;
   if (category === 'trabalho' && project_id) {
-    if (!isProjectParticipant(project_id, req.userId)) {
+    if (!(await isProjectParticipant(project_id, req.userId))) {
       return res.status(400).json({ error: 'Você não participa desse projeto' });
     }
     projectId = project_id;
     // grupo é herdado do projeto — nunca confia num group_id vindo direto do client junto com project_id
-    groupId = db.prepare('SELECT group_id FROM projects WHERE id = ?').get(projectId)?.group_id || null;
+    groupId = (await db.prepare('SELECT group_id FROM projects WHERE id = ?').get(projectId))?.group_id || null;
   } else if (category === 'trabalho' && group_id) {
-    if (!isGroupParticipant(group_id, req.userId)) {
+    if (!(await isGroupParticipant(group_id, req.userId))) {
       return res.status(400).json({ error: 'Você não participa desse grupo' });
     }
     groupId = group_id;
@@ -154,7 +160,7 @@ router.post('/', (req, res) => {
   if (category === 'trabalho' && assignees.some(id => id !== req.userId)) shared = 1;
   if (projectId || groupId) shared = 1;
 
-  const result = db.prepare(
+  const result = await db.prepare(
     'INSERT INTO tasks (user_id, title, description, category, due_date, shared_with_team, project_id, group_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   ).run(req.userId, title, description || '', category, due_date || null, shared, projectId, groupId);
 
@@ -162,16 +168,16 @@ router.post('/', (req, res) => {
   const insertAssignee = db.prepare('INSERT OR IGNORE INTO task_assignees (task_id, user_id) VALUES (?, ?)');
   const insertParticipant = db.prepare('INSERT OR IGNORE INTO project_participants (project_id, user_id) VALUES (?, ?)');
   for (const userId of assignees) {
-    insertAssignee.run(taskId, userId);
-    if (projectId) insertParticipant.run(projectId, userId);
+    await insertAssignee.run(taskId, userId);
+    if (projectId) await insertParticipant.run(projectId, userId);
   }
 
-  const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
-  res.status(201).json(hydrate(task, usersMap()));
+  const task = await db.prepare('SELECT * FROM tasks WHERE id = ?').get(taskId);
+  res.status(201).json(await hydrate(task, await usersMap()));
 });
 
-router.put('/:id', (req, res) => {
-  const task = getAccessibleTask(req.params.id, req.userId);
+router.put('/:id', async (req, res) => {
+  const task = await getAccessibleTask(req.params.id, req.userId);
 
   if (!task) {
     return res.status(404).json({ error: 'Tarefa não encontrada' });
@@ -207,17 +213,17 @@ router.put('/:id', (req, res) => {
     if (others.length > 0) {
       if (task.project_id) {
         const insertParticipant = db.prepare('INSERT OR IGNORE INTO project_participants (project_id, user_id) VALUES (?, ?)');
-        others.forEach(id => insertParticipant.run(task.project_id, id));
+        for (const id of others) await insertParticipant.run(task.project_id, id);
       } else if (task.group_id) {
         const insertParticipant = db.prepare('INSERT OR IGNORE INTO work_group_participants (group_id, user_id) VALUES (?, ?)');
-        others.forEach(id => insertParticipant.run(task.group_id, id));
+        for (const id of others) await insertParticipant.run(task.group_id, id);
       } else {
         updated.shared_with_team = 1;
       }
     }
   }
 
-  db.prepare(`
+  await db.prepare(`
     UPDATE tasks SET
       title = ?, description = ?, category = ?, status = ?,
       real_time = ?, timer_active = ?,
@@ -232,27 +238,27 @@ router.put('/:id', (req, res) => {
   );
 
   if (assignees) {
-    db.prepare('DELETE FROM task_assignees WHERE task_id = ?').run(task.id);
+    await db.prepare('DELETE FROM task_assignees WHERE task_id = ?').run(task.id);
     const insertAssignee = db.prepare('INSERT OR IGNORE INTO task_assignees (task_id, user_id) VALUES (?, ?)');
-    assignees.forEach(id => insertAssignee.run(task.id, id));
+    for (const id of assignees) await insertAssignee.run(task.id, id);
   }
 
-  const result = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
-  res.json(hydrate(result, usersMap()));
+  const result = await db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
+  res.json(await hydrate(result, await usersMap()));
 });
 
-router.delete('/:id', (req, res) => {
-  const task = getAccessibleTask(req.params.id, req.userId);
+router.delete('/:id', async (req, res) => {
+  const task = await getAccessibleTask(req.params.id, req.userId);
   if (!task) {
     return res.status(404).json({ error: 'Tarefa não encontrada' });
   }
 
-  db.prepare('DELETE FROM tasks WHERE id = ?').run(req.params.id);
+  await db.prepare('DELETE FROM tasks WHERE id = ?').run(req.params.id);
   res.status(204).send();
 });
 
-router.post('/:id/steps', (req, res) => {
-  const task = getAccessibleTask(req.params.id, req.userId);
+router.post('/:id/steps', async (req, res) => {
+  const task = await getAccessibleTask(req.params.id, req.userId);
   if (!task) {
     return res.status(404).json({ error: 'Tarefa não encontrada' });
   }
@@ -262,25 +268,25 @@ router.post('/:id/steps', (req, res) => {
     return res.status(400).json({ error: 'Título da etapa é obrigatório' });
   }
 
-  const { count } = db.prepare('SELECT COUNT(*) as count FROM task_steps WHERE task_id = ?').get(task.id);
+  const { count } = await db.prepare('SELECT COUNT(*) as count FROM task_steps WHERE task_id = ?').get(task.id);
   if (count >= MAX_STEPS) {
     return res.status(400).json({ error: `Limite de ${MAX_STEPS} itens por tarefa` });
   }
 
-  const { maxPosition } = db.prepare('SELECT COALESCE(MAX(position), -1) as maxPosition FROM task_steps WHERE task_id = ?').get(task.id);
-  db.prepare('INSERT INTO task_steps (task_id, title, position) VALUES (?, ?, ?)')
+  const { maxPosition } = await db.prepare('SELECT COALESCE(MAX(position), -1) as maxPosition FROM task_steps WHERE task_id = ?').get(task.id);
+  await db.prepare('INSERT INTO task_steps (task_id, title, position) VALUES (?, ?, ?)')
     .run(task.id, title.trim(), maxPosition + 1);
 
-  res.status(201).json(hydrate(task, usersMap()));
+  res.status(201).json(await hydrate(task, await usersMap()));
 });
 
-router.put('/:id/steps/:stepId', (req, res) => {
-  const task = getAccessibleTask(req.params.id, req.userId);
+router.put('/:id/steps/:stepId', async (req, res) => {
+  const task = await getAccessibleTask(req.params.id, req.userId);
   if (!task) {
     return res.status(404).json({ error: 'Tarefa não encontrada' });
   }
 
-  const step = db.prepare('SELECT * FROM task_steps WHERE id = ? AND task_id = ?').get(req.params.stepId, task.id);
+  const step = await db.prepare('SELECT * FROM task_steps WHERE id = ? AND task_id = ?').get(req.params.stepId, task.id);
   if (!step) {
     return res.status(404).json({ error: 'Etapa não encontrada' });
   }
@@ -289,20 +295,20 @@ router.put('/:id/steps/:stepId', (req, res) => {
   if ('title' in req.body) updated.title = req.body.title;
   if ('done' in req.body) updated.done = req.body.done ? 1 : 0;
 
-  db.prepare('UPDATE task_steps SET title = ?, done = ? WHERE id = ?')
+  await db.prepare('UPDATE task_steps SET title = ?, done = ? WHERE id = ?')
     .run(updated.title, updated.done, step.id);
 
-  res.json(hydrate(task, usersMap()));
+  res.json(await hydrate(task, await usersMap()));
 });
 
-router.delete('/:id/steps/:stepId', (req, res) => {
-  const task = getAccessibleTask(req.params.id, req.userId);
+router.delete('/:id/steps/:stepId', async (req, res) => {
+  const task = await getAccessibleTask(req.params.id, req.userId);
   if (!task) {
     return res.status(404).json({ error: 'Tarefa não encontrada' });
   }
 
-  db.prepare('DELETE FROM task_steps WHERE id = ? AND task_id = ?').run(req.params.stepId, task.id);
-  res.json(hydrate(task, usersMap()));
+  await db.prepare('DELETE FROM task_steps WHERE id = ? AND task_id = ?').run(req.params.stepId, task.id);
+  res.json(await hydrate(task, await usersMap()));
 });
 
 module.exports = router;

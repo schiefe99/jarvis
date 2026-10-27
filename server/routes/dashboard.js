@@ -5,7 +5,7 @@ const { authMiddleware } = require('../middleware/auth');
 const router = express.Router();
 router.use(authMiddleware);
 
-router.get('/metrics', (req, res) => {
+router.get('/metrics', async (req, res) => {
   const uid = req.userId;
   const category = ['trabalho', 'pessoal'].includes(req.query.category) ? req.query.category : undefined;
   const teamScope = category === 'trabalho' && req.query.scope === 'team';
@@ -35,7 +35,7 @@ router.get('/metrics', (req, res) => {
     scopeParams = [uid];
   }
 
-  const statusCounts = db.prepare(`
+  const statusCounts = await db.prepare(`
     SELECT status, COUNT(*) as count FROM tasks WHERE 1=1 ${scopeFilter} GROUP BY status
   `).all(...scopeParams);
 
@@ -45,12 +45,12 @@ router.get('/metrics', (req, res) => {
   const total = counts.nao_iniciada + counts.em_andamento + counts.concluida;
   const completionRate = total > 0 ? Math.round((counts.concluida / total) * 100) : 0;
 
-  const timeStats = db.prepare(`
+  const timeStats = await db.prepare(`
     SELECT AVG(real_time) as avg_time, SUM(real_time) as total_time
     FROM tasks WHERE status = 'concluida' ${scopeFilter}
   `).get(...scopeParams);
 
-  const timeline = db.prepare(`
+  const timeline = await db.prepare(`
     SELECT date(finished_at, 'unixepoch') as day, COUNT(*) as count
     FROM tasks
     WHERE status = 'concluida'
@@ -60,7 +60,7 @@ router.get('/metrics', (req, res) => {
     GROUP BY day ORDER BY day
   `).all(...scopeParams);
 
-  const categoryStats = db.prepare(`
+  const categoryStats = await db.prepare(`
     SELECT category, AVG(real_time) as avg_time, COUNT(*) as count,
       SUM(CASE WHEN status = 'concluida' THEN 1 ELSE 0 END) as completed
     FROM tasks WHERE 1=1 ${scopeFilter}

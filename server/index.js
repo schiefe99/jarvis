@@ -1,5 +1,6 @@
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express = require('express');
+require('express-async-errors'); // erros em handlers async viram 500 em vez de derrubar o processo
 const cors = require('cors');
 
 const authRoutes = require('./routes/auth');
@@ -14,6 +15,7 @@ const settingsRoutes = require('./routes/settings');
 const projectsRoutes = require('./routes/projects');
 const groupsRoutes = require('./routes/groups');
 const dailyTasksRoutes = require('./routes/dailyTasks');
+const db = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -39,6 +41,18 @@ app.use('/api/projects', projectsRoutes);
 app.use('/api/groups', groupsRoutes);
 app.use('/api/daily-tasks', dailyTasksRoutes);
 
-app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ error: 'Erro interno do servidor' });
 });
+
+db.ready
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Servidor rodando na porta ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error('Falha ao inicializar o banco:', err);
+    process.exit(1);
+  });

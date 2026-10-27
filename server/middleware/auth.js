@@ -20,8 +20,8 @@ function authMiddleware(req, res, next) {
   }
 }
 
-function adminMiddleware(req, res, next) {
-  const user = db.prepare('SELECT is_admin FROM users WHERE id = ?').get(req.userId);
+async function adminMiddleware(req, res, next) {
+  const user = await db.prepare('SELECT is_admin FROM users WHERE id = ?').get(req.userId);
   if (!user?.is_admin) {
     return res.status(403).json({ error: 'Acesso restrito a administradores' });
   }

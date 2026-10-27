@@ -13,7 +13,7 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ error: 'Email e senha são obrigatórios' });
   }
 
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  const user = await db.prepare('SELECT * FROM users WHERE email = ?').get(email);
   if (!user) {
     return res.status(401).json({ error: 'Credenciais inválidas' });
   }
@@ -41,14 +41,14 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ error: 'A senha deve ter no mínimo 6 caracteres' });
   }
 
-  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  const existing = await db.prepare('SELECT id FROM users WHERE email = ?').get(email);
   if (existing) {
     return res.status(409).json({ error: 'Email já cadastrado' });
   }
 
   const hashed = await bcrypt.hash(password, 10);
-  const result = db.prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)').run(name, email, hashed);
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
+  const result = await db.prepare('INSERT INTO users (name, email, password) VALUES (?, ?, ?)').run(name, email, hashed);
+  const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
 
   const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
 
@@ -68,18 +68,18 @@ router.post('/set-password', async (req, res) => {
     return res.status(400).json({ error: 'A senha deve ter no mínimo 6 caracteres' });
   }
 
-  const invite = db.prepare('SELECT * FROM invite_tokens WHERE token = ?').get(token);
+  const invite = await db.prepare('SELECT * FROM invite_tokens WHERE token = ?').get(token);
   if (!invite) {
     return res.status(404).json({ error: 'Convite não encontrado' });
   }
   if (invite.expires_at < Math.floor(Date.now() / 1000)) {
-    db.prepare('DELETE FROM invite_tokens WHERE id = ?').run(invite.id);
+    await db.prepare('DELETE FROM invite_tokens WHERE id = ?').run(invite.id);
     return res.status(400).json({ error: 'Convite expirado' });
   }
 
   const hashed = await bcrypt.hash(password, 10);
-  db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashed, invite.user_id);
-  db.prepare('DELETE FROM invite_tokens WHERE id = ?').run(invite.id);
+  await db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashed, invite.user_id);
+  await db.prepare('DELETE FROM invite_tokens WHERE id = ?').run(invite.id);
 
   res.json({ success: true });
 });
