@@ -22,10 +22,20 @@ const PORT = process.env.PORT || 3001;
 
 const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
   .split(',')
-  .map((o) => o.trim())
+  .map((o) => o.trim().replace(/\/+$/, ''))
   .filter(Boolean);
 
-app.use(cors({ origin: allowedOrigins, credentials: true }));
+console.log('CORS liberado para:', allowedOrigins);
+
+app.use(cors({
+  origin(origin, callback) {
+    // sem Origin = mesma origem, curl ou health check do Render
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    console.warn(`CORS recusado para a origem: ${origin}`);
+    callback(null, false);
+  },
+  credentials: true,
+}));
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
