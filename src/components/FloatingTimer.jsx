@@ -1,80 +1,15 @@
 import { CheckCircle2, ExternalLink, Pause } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useActiveTimer } from '../contexts/ActiveTimerContext';
 import { formatTime, useTimer } from '../hooks/useTimer';
+import { usePip } from '../hooks/usePip';
 import api from '../services/api';
+import TimerPipContent from './TimerPipContent';
 
 const SIZE = 88;
 const RADIUS = 38;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
-
-// Rendered inside the native PiP window via portal
-function PipContent({ task, elapsed, onPause, onFinish }) {
-  const timerColor = '#60a5fa';
-
-  return (
-    <div style={{
-      fontFamily: 'system-ui, -apple-system, sans-serif',
-      background: '#0f172a',
-      minHeight: '100vh',
-      padding: '16px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '12px',
-      boxSizing: 'border-box',
-      color: 'white',
-      userSelect: 'none',
-    }}>
-      {/* Header */}
-      <div>
-        <div style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>
-          {task.category}
-        </div>
-        <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-          {task.title}
-        </div>
-      </div>
-
-      {/* Timer */}
-      <div style={{
-        fontSize: '42px',
-        fontFamily: 'ui-monospace, monospace',
-        fontWeight: 700,
-        textAlign: 'center',
-        color: timerColor,
-        lineHeight: 1,
-        padding: '4px 0',
-      }}>
-        {formatTime(elapsed)}
-      </div>
-
-      {/* Buttons */}
-      <div style={{ display: 'flex', gap: '8px', marginTop: 'auto' }}>
-        <button onClick={onPause} style={{
-          flex: 1, padding: '10px', borderRadius: '10px', border: 'none',
-          background: '#1e293b', color: '#e2e8f0', fontSize: '13px', fontWeight: 500,
-          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-        }}
-          onMouseOver={e => e.currentTarget.style.background = '#334155'}
-          onMouseOut={e => e.currentTarget.style.background = '#1e293b'}
-        >
-          ⏸ Pausar
-        </button>
-        <button onClick={onFinish} style={{
-          flex: 1, padding: '10px', borderRadius: '10px', border: 'none',
-          background: '#166534', color: '#dcfce7', fontSize: '13px', fontWeight: 500,
-          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-        }}
-          onMouseOver={e => e.currentTarget.style.background = '#15803d'}
-          onMouseOut={e => e.currentTarget.style.background = '#166534'}
-        >
-          ✓ Concluir
-        </button>
-      </div>
-    </div>
-  );
-}
 
 export default function FloatingTimer() {
   const { activeTask, clearActiveTask } = useActiveTimer();
@@ -82,10 +17,7 @@ export default function FloatingTimer() {
     x: window.innerWidth - SIZE - 24,
     y: 80,
   }));
-  const [pipWindow, setPipWindow] = useState(null);
-  const [pipContainer, setPipContainer] = useState(null);
-  const pipRef = useRef(null);
-  const pipSupported = typeof window !== 'undefined' && 'documentPictureInPicture' in window;
+  const { pipSupported, pipContainer, isPipActive, openPip, closePip } = usePip();
 
   useEffect(() => {
     function onResize() {
@@ -116,13 +48,6 @@ export default function FloatingTimer() {
     }
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
-  }
-
-  function closePip() {
-    try { pipRef.current?.close(); } catch { /* ignore */ }
-    pipRef.current = null;
-    setPipWindow(null);
-    setPipContainer(null);
   }
 
   async function handlePause() {
@@ -157,59 +82,6 @@ export default function FloatingTimer() {
     closePip();
   }
 
-  async function togglePip() {
-    if (pipRef.current) {
-      closePip();
-      return;
-    }
-
-    if (!pipSupported) return;
-
-    try {
-      const pip = await window.documentPictureInPicture.requestWindow({
-        width: 260,
-        height: 240,
-        disallowReturnToOpener: false,
-      });
-
-      // Copy all CSS from the main page to the PiP window
-      [...document.styleSheets].forEach((sheet) => {
-        try {
-          const css = [...sheet.cssRules].map(r => r.cssText).join('');
-          const style = pip.document.createElement('style');
-          style.textContent = css;
-          pip.document.head.appendChild(style);
-        } catch {
-          if (sheet.href) {
-            const link = pip.document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = sheet.href;
-            pip.document.head.appendChild(link);
-          }
-        }
-      });
-
-      pip.document.body.style.cssText = 'margin:0;padding:0;overflow:hidden;';
-
-      const container = pip.document.createElement('div');
-      pip.document.body.appendChild(container);
-
-      pip.addEventListener('pagehide', () => {
-        pipRef.current = null;
-        setPipWindow(null);
-        setPipContainer(null);
-      });
-
-      pipRef.current = pip;
-      setPipWindow(pip);
-      setPipContainer(container);
-    } catch (err) {
-      if (err.name !== 'NotAllowedError') {
-        console.error('PiP error:', err);
-      }
-    }
-  }
-
   const elapsed = useTimer(activeTask || {});
 
   if (!activeTask) return null;
@@ -221,7 +93,7 @@ export default function FloatingTimer() {
   return (
     <>
       {/* Floating bubble — hidden when PiP is active */}
-      {!pipWindow && (
+      {!isPipActive && (
         <div
           style={{ left: pos.x, top: pos.y, width: SIZE, height: SIZE }}
           className="fixed z-[9999] select-none group cursor-grab active:cursor-grabbing"
@@ -285,7 +157,7 @@ export default function FloatingTimer() {
           {pipSupported && (
             <button
               onMouseDown={e => e.stopPropagation()}
-              onClick={e => { e.stopPropagation(); togglePip(); }}
+              onClick={e => { e.stopPropagation(); openPip(); }}
               className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-gray-900 border border-gray-700 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 opacity-0 group-hover:opacity-100 transition-all shadow-lg z-10"
               title="Abrir fora da página (Picture-in-Picture)"
             >
@@ -297,7 +169,7 @@ export default function FloatingTimer() {
 
       {/* PiP portal — renders React tree into the native OS window */}
       {pipContainer && activeTask && createPortal(
-        <PipContent
+        <TimerPipContent
           task={activeTask}
           elapsed={elapsed}
           onPause={handlePause}

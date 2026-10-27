@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { ActiveTimerProvider } from './contexts/ActiveTimerContext.jsx';
 import { AuthProvider } from './contexts/AuthContext.jsx';
+import { DailyTasksProvider } from './contexts/DailyTasksContext.jsx';
 import { GroupNameProvider } from './contexts/GroupNameContext.jsx';
 import { ProfileProvider } from './contexts/ProfileContext.jsx';
 import { ThemeProvider } from './contexts/ThemeContext.jsx';
@@ -16,9 +17,11 @@ createRoot(document.getElementById('root')).render(
         <AuthProvider>
           <ProfileProvider>
             <ActiveTimerProvider>
-              <GroupNameProvider>
-                <App />
-              </GroupNameProvider>
+              <DailyTasksProvider>
+                <GroupNameProvider>
+                  <App />
+                </GroupNameProvider>
+              </DailyTasksProvider>
             </ActiveTimerProvider>
           </ProfileProvider>
         </AuthProvider>

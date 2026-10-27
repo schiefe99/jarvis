@@ -7,6 +7,7 @@ import SivrajOnlyRoute from './components/SivrajOnlyRoute';
 import { useAuth } from './contexts/AuthContext';
 import AdminTeam from './pages/AdminTeam';
 import Dashboard from './pages/Dashboard';
+import DailyTasksPage from './pages/DailyTasksPage';
 import GroupPage from './pages/GroupPage';
 import Login from './pages/Login';
 import ProfileSelect from './pages/ProfileSelect';
@@ -40,6 +41,7 @@ export default function App() {
       <Route path="/group/g/:groupId" element={<Private><GroupPage /></Private>} />
       <Route path="/group/g/:groupId/project/:projectId" element={<Private><GroupPage /></Private>} />
       <Route path="/tasks"       element={<Private><TasksPage /></Private>} />
+      <Route path="/daily-tasks" element={<Private><DailyTasksPage /></Private>} />
       <Route path="/dashboard"   element={<Private><Dashboard /></Private>} />
       <Route path="/finance"     element={<SivrajOnly><FinancePage /></SivrajOnly>} />
       <Route path="/commitments" element={<SivrajOnly><CommitmentsPage /></SivrajOnly>} />

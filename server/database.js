@@ -126,6 +126,25 @@ db.exec(`
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     PRIMARY KEY (group_id, user_id)
   );
+
+  CREATE TABLE IF NOT EXISTS daily_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    weekdays TEXT NOT NULL,
+    active INTEGER DEFAULT 1,
+    created_at INTEGER DEFAULT (unixepoch()),
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS daily_task_completions (
+    daily_task_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    created_at INTEGER DEFAULT (unixepoch()),
+    PRIMARY KEY (daily_task_id, date),
+    FOREIGN KEY(daily_task_id) REFERENCES daily_tasks(id) ON DELETE CASCADE
+  );
 `);
 
 // Migrations — ADD COLUMN only if it doesn't exist yet

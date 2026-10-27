@@ -13,6 +13,7 @@ const aiRoutes = require('./routes/ai');
 const settingsRoutes = require('./routes/settings');
 const projectsRoutes = require('./routes/projects');
 const groupsRoutes = require('./routes/groups');
+const dailyTasksRoutes = require('./routes/dailyTasks');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -31,6 +32,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/projects', projectsRoutes);
 app.use('/api/groups', groupsRoutes);
+app.use('/api/daily-tasks', dailyTasksRoutes);
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);

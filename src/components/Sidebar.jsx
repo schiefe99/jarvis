@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useGroupName } from '../contexts/GroupNameContext';
 import { useProfile } from '../contexts/ProfileContext';
 import api from '../services/api';
+import DailyTasksPanel from './DailyTasksPanel';
 import GroupModal from './GroupModal';
 import ProjectModal from './ProjectModal';
 
@@ -162,7 +163,7 @@ export default function Sidebar({ open, onClose }) {
         />
       )}
       <aside
-        className={`fixed top-16 left-0 h-[calc(100vh-4rem)] z-40 w-64 lg:static lg:top-auto lg:h-auto lg:z-auto lg:w-56 lg:min-h-[calc(100vh-4rem)] card-glass border-r border-gray-200 dark:border-white/5 p-4 flex flex-col gap-5 transition-transform duration-200 lg:translate-x-0 ${
+        className={`fixed top-16 left-0 h-[calc(100vh-4rem)] z-40 w-64 lg:static lg:top-auto lg:h-auto lg:z-auto lg:w-56 lg:min-h-[calc(100vh-4rem)] card-glass border-r border-gray-200 dark:border-white/5 p-4 flex flex-col gap-5 overflow-y-auto transition-transform duration-200 lg:translate-x-0 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -269,6 +270,8 @@ export default function Sidebar({ open, onClose }) {
             </div>
           </div>
         ))}
+
+        <DailyTasksPanel />
       </aside>
 
       {projectModalGroupId !== undefined && (

@@ -1,8 +1,11 @@
-import { Clock, Plus, Trash2, X } from 'lucide-react';
+import { Clock, ExternalLink, Plus, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useActiveTimer } from '../contexts/ActiveTimerContext';
 import { formatTime, useTimer } from '../hooks/useTimer';
+import { usePip } from '../hooks/usePip';
 import api from '../services/api';
+import TimerPipContent from './TimerPipContent';
 
 const STATUS_STYLE = {
   nao_iniciada: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
@@ -27,6 +30,36 @@ export default function TaskDetailModal({ task, onUpdate, onClose }) {
   const doneCount = steps.filter(s => s.done).length;
   const elapsed = useTimer(task);
   const isCompleted = task.status === 'concluida';
+  const { clearActiveTask } = useActiveTimer();
+  const { pipSupported, pipContainer, isPipActive, openPip, closePip } = usePip();
+
+  async function handlePause() {
+    const now = Math.floor(Date.now() / 1000);
+    const timerElapsed = task.timer_started_at ? now - task.timer_started_at : 0;
+    const { data } = await api.put(`/tasks/${task.id}`, {
+      timer_active: 0,
+      timer_started_at: null,
+      real_time: task.real_time + timerElapsed,
+    });
+    onUpdate(data);
+    clearActiveTask(data);
+    closePip();
+  }
+
+  async function handleFinish() {
+    const now = Math.floor(Date.now() / 1000);
+    const timerElapsed = task.timer_active && task.timer_started_at ? now - task.timer_started_at : 0;
+    const { data } = await api.put(`/tasks/${task.id}`, {
+      timer_active: 0,
+      timer_started_at: null,
+      real_time: task.real_time + timerElapsed,
+      status: 'concluida',
+      finished_at: now,
+    });
+    onUpdate(data);
+    clearActiveTask(data);
+    closePip();
+  }
 
   async function addStep(e) {
     e.preventDefault();
@@ -46,7 +79,9 @@ export default function TaskDetailModal({ task, onUpdate, onClose }) {
     onUpdate(data);
   }
 
-  return createPortal(
+  return (
+    <>
+    {createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto border-t-4 border-green-500">
         <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
@@ -82,6 +117,16 @@ export default function TaskDetailModal({ task, onUpdate, onClose }) {
               <span className="text-xs font-sans font-normal text-green-600 dark:text-green-400 ml-1">
                 em andamento
               </span>
+            )}
+            {!!task.timer_active && pipSupported && (
+              <button
+                onClick={() => openPip()}
+                className="ml-auto flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-sans font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title="Abrir cronômetro em Picture-in-Picture"
+              >
+                <ExternalLink size={12} />
+                {isPipActive ? 'Fechar PiP' : 'PiP'}
+              </button>
             )}
           </div>
         </div>
@@ -151,5 +196,16 @@ export default function TaskDetailModal({ task, onUpdate, onClose }) {
       </div>
     </div>,
     document.body
+    )}
+    {pipContainer && createPortal(
+      <TimerPipContent
+        task={task}
+        elapsed={elapsed}
+        onPause={handlePause}
+        onFinish={handleFinish}
+      />,
+      pipContainer
+    )}
+    </>
   );
 }
