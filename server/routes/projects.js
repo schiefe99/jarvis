@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../database');
 const { authMiddleware } = require('../middleware/auth');
+const { isGuest } = require('../utils/access');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -26,12 +27,15 @@ async function attachGroupName(project) {
 
 router.get('/', async (req, res) => {
   const map = await usersMap();
+  // convidado só vê projetos dos grupos em que participa
+  const guest = await isGuest(req.userId);
   const projects = await db.prepare(`
     SELECT p.* FROM projects p
     JOIN project_participants pp ON pp.project_id = p.id
     WHERE pp.user_id = ?
+    ${guest ? 'AND p.group_id IN (SELECT group_id FROM work_group_participants WHERE user_id = ?)' : ''}
     ORDER BY p.created_at DESC
-  `).all(req.userId);
+  `).all(...(guest ? [req.userId, req.userId] : [req.userId]));
 
   res.json(await Promise.all(projects.map(async p => attachGroupName(await attachParticipants({ ...p, created_by_name: map.get(p.created_by) || null })))));
 });
@@ -40,6 +44,10 @@ router.post('/', async (req, res) => {
   const { name, participant_ids, group_id } = req.body;
   if (!name || !name.trim()) {
     return res.status(400).json({ error: 'Nome do projeto é obrigatório' });
+  }
+
+  if (!group_id && (await isGuest(req.userId))) {
+    return res.status(403).json({ error: 'Convidados só podem criar projetos nos grupos em que participam' });
   }
 
   let groupId = null;

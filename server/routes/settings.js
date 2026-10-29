@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../database');
 const { authMiddleware } = require('../middleware/auth');
+const { isGuest } = require('../utils/access');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -13,6 +14,9 @@ router.get('/group-name', async (req, res) => {
 });
 
 router.put('/group-name', async (req, res) => {
+  if (await isGuest(req.userId)) {
+    return res.status(403).json({ error: 'Convidados não podem renomear o grupo principal' });
+  }
   const name = (req.body.name || '').trim();
   if (!name) return res.status(400).json({ error: 'Nome não pode ser vazio' });
   await db.prepare('INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')

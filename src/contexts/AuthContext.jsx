@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import api from '../services/api';
 
 const AuthContext = createContext(null);
@@ -13,6 +13,16 @@ export function AuthProvider({ children }) {
       return null;
     }
   });
+
+  // a sessão salva pode estar desatualizada (ex.: virou convidado depois do login) — revalida com o servidor
+  useEffect(() => {
+    if (!localStorage.getItem('token')) return;
+    api.get('/auth/me').then(({ data }) => {
+      if (!data?.id) return;
+      localStorage.setItem('user', JSON.stringify(data));
+      setUser(data);
+    }).catch(() => {});
+  }, []);
 
   // Se a API estiver mal configurada (ex.: devolve o index.html), não salva lixo no localStorage.
   function saveSession(data) {

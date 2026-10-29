@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../database');
 const { authMiddleware } = require('../middleware/auth');
+const { isGuest } = require('../utils/access');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -30,6 +31,10 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
+  if (await isGuest(req.userId)) {
+    return res.status(403).json({ error: 'Convidados não podem criar grupos' });
+  }
+
   const { name, participant_ids } = req.body;
   if (!name || !name.trim()) {
     return res.status(400).json({ error: 'Nome do grupo é obrigatório' });

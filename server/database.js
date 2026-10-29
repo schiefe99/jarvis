@@ -186,6 +186,7 @@ async function init() {
     "ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0",
     "ALTER TABLE tasks ADD COLUMN assigned_to INTEGER REFERENCES users(id)",
     "ALTER TABLE tasks ADD COLUMN due_date INTEGER",
+    "ALTER TABLE users ADD COLUMN is_guest INTEGER DEFAULT 0",
   ];
   for (const sql of migrations) {
     try { await db.exec(sql); } catch { /* column already exists */ }

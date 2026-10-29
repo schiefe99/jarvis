@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../database');
 const { authMiddleware } = require('../middleware/auth');
+const { canViewSharedPool } = require('../utils/access');
 const { ask, chat } = require('../services/claude');
 
 const router = express.Router();
@@ -24,6 +25,7 @@ async function taskSnapshot(userId, category, scope, projectId, groupId) {
   let query = 'SELECT * FROM tasks WHERE 1=1';
   const params = [];
   if (category === 'trabalho' && scope === 'team') {
+    if (!(await canViewSharedPool(groupId, userId))) return 'Nenhuma tarefa cadastrada.';
     query += ' AND category = ? AND shared_with_team = 1';
     params.push('trabalho');
     if (groupId) {
@@ -109,6 +111,9 @@ router.post('/chat', async (req, res) => {
   const snapshot = await taskSnapshot(req.userId, cat, scope, project, group);
 
   async function onCreateTask(input) {
+    if (scope === 'team' && !(await canViewSharedPool(group, req.userId))) {
+      throw new Error('Sem acesso a este grupo');
+    }
     const due_date = input.due_date ? Math.floor(new Date(input.due_date).getTime() / 1000) : null;
     const shared_with_team = cat === 'trabalho' && scope === 'team' ? 1 : 0;
     const projectId = shared_with_team && project ? project : null;

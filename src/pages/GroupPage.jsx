@@ -1,6 +1,6 @@
 import { AlertTriangle, Check, Pencil, Plus, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Navigate, useParams } from 'react-router-dom';
 import AiSummaryCard from '../components/AiSummaryCard';
 import Avatar from '../components/Avatar';
 import ChatPanel from '../components/ChatPanel';
@@ -8,6 +8,7 @@ import MetricCard from '../components/MetricCard';
 import TaskCard from '../components/TaskCard';
 import TaskModal from '../components/TaskModal';
 import { useActiveTimer } from '../contexts/ActiveTimerContext';
+import { useAuth } from '../contexts/AuthContext';
 import { useGroupName } from '../contexts/GroupNameContext';
 import { useProfile } from '../contexts/ProfileContext';
 import api from '../services/api';
@@ -20,6 +21,10 @@ export default function GroupPage() {
   const scope = category === 'trabalho' ? 'team' : undefined;
   const { lastUpdate } = useActiveTimer();
   const { groupName, updateGroupName } = useGroupName();
+  const { user } = useAuth();
+  // convidado não acessa o grupo principal — vai direto pro primeiro grupo em que participa
+  const guestOnMainGroup = !!user?.is_guest && category === 'trabalho' && !groupId;
+  const [guestGroups, setGuestGroups] = useState(null);
 
   const [tasks, setTasks] = useState([]);
   const [metrics, setMetrics] = useState(null);
@@ -36,8 +41,13 @@ export default function GroupPage() {
     setTasks(ts => ts.map(t => t.id === lastUpdate.id ? lastUpdate : t));
   }, [lastUpdate]);
 
+  useEffect(() => {
+    if (!guestOnMainGroup) return;
+    api.get('/groups').then(({ data }) => setGuestGroups(data)).catch(() => setGuestGroups([]));
+  }, [guestOnMainGroup]);
+
   const fetchAll = useCallback(async () => {
-    if (!category) return;
+    if (!category || guestOnMainGroup) return;
     setLoading(true);
     try {
       const [tasksRes, metricsRes] = await Promise.all([
@@ -49,7 +59,7 @@ export default function GroupPage() {
     } finally {
       setLoading(false);
     }
-  }, [category, scope, groupId, projectId]);
+  }, [category, scope, groupId, projectId, guestOnMainGroup]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -125,6 +135,16 @@ export default function GroupPage() {
     .filter(t => t.due_date && t.status !== 'concluida' && (t.due_date - now) / 86400 <= 3)
     .sort((a, b) => a.due_date - b.due_date)
     .slice(0, 5);
+
+  if (guestOnMainGroup) {
+    if (guestGroups === null) return null;
+    if (guestGroups.length > 0) return <Navigate to={`/group/g/${guestGroups[0].id}`} replace />;
+    return (
+      <div className="max-w-5xl mx-auto card-glass text-center py-16">
+        <p className="text-gray-500 dark:text-gray-400 font-medium">Você ainda não participa de nenhum grupo</p>
+      </div>
+    );
+  }
 
   if (loading && !metrics) {
     return (

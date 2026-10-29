@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../database');
 const { authMiddleware } = require('../middleware/auth');
+const { canViewSharedPool } = require('../utils/access');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -27,6 +28,7 @@ router.get('/metrics', async (req, res) => {
       scopeFilter += ' AND project_id = ?';
       scopeParams.push(req.query.project);
     }
+    if (!(await canViewSharedPool(req.query.group, uid))) scopeFilter += ' AND 1 = 0';
   } else if (category) {
     scopeFilter = 'AND category = ? AND user_id = ?';
     scopeParams = [category, uid];

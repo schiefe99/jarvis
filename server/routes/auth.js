@@ -2,9 +2,19 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../database');
-const { JWT_SECRET } = require('../middleware/auth');
+const { authMiddleware, JWT_SECRET } = require('../middleware/auth');
 
 const router = express.Router();
+
+function publicUser(user) {
+  return { id: user.id, name: user.name, email: user.email, is_admin: !!user.is_admin, is_guest: !!user.is_guest };
+}
+
+router.get('/me', authMiddleware, async (req, res) => {
+  const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(req.userId);
+  if (!user) return res.status(401).json({ error: 'Usuário não encontrado' });
+  res.json(publicUser(user));
+});
 
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
@@ -27,7 +37,7 @@ router.post('/login', async (req, res) => {
 
   res.json({
     token,
-    user: { id: user.id, name: user.name, email: user.email, is_admin: !!user.is_admin },
+    user: publicUser(user),
   });
 });
 
@@ -54,7 +64,7 @@ router.post('/register', async (req, res) => {
 
   res.status(201).json({
     token,
-    user: { id: user.id, name: user.name, email: user.email, is_admin: !!user.is_admin },
+    user: publicUser(user),
   });
 });
 

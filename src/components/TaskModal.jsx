@@ -269,7 +269,7 @@ export default function TaskModal({ task, defaultCategory, defaultGroupId, defau
                   className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="" disabled={autoShared}>Nenhum</option>
-                  <option value="tercon">{groupName}</option>
+                  {!user?.is_guest && <option value="tercon">{groupName}</option>}
                   {groups.map(g => (
                     <option key={g.id} value={g.id}>{g.name}</option>
                   ))}

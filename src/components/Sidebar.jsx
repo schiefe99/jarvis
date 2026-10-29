@@ -172,7 +172,7 @@ export default function Sidebar({ open, onClose }) {
             Tarefas
           </p>
           <div className="flex flex-col gap-1">
-            {profile === 'jarvis' ? (
+            {profile === 'jarvis' && user?.is_guest ? null : profile === 'jarvis' ? (
               <ExpandableEntry
                 name={groupName}
                 icon={Home}
@@ -217,7 +217,7 @@ export default function Sidebar({ open, onClose }) {
               />
             ))}
 
-            {profile === 'jarvis' && (
+            {profile === 'jarvis' && !user?.is_guest && (
               <button
                 onClick={() => setGroupModalOpen(true)}
                 className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"

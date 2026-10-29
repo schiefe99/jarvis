@@ -1,6 +1,7 @@
 const express = require('express');
 const db = require('../database');
 const { authMiddleware } = require('../middleware/auth');
+const { isGuest, isGroupParticipant, canViewSharedPool } = require('../utils/access');
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -56,13 +57,14 @@ async function isProjectParticipant(projectId, userId) {
   return !!await db.prepare('SELECT 1 FROM project_participants WHERE project_id = ? AND user_id = ?').get(projectId, userId);
 }
 
-async function isGroupParticipant(groupId, userId) {
-  return !!await db.prepare('SELECT 1 FROM work_group_participants WHERE group_id = ? AND user_id = ?').get(groupId, userId);
-}
-
 async function getAccessibleTask(id, userId) {
   const task = await db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
   if (!task) return null;
+  if (await isGuest(userId)) {
+    // convidado: só as próprias tarefas não compartilhadas, ou tarefas de um grupo em que participa
+    if (task.group_id) return (await isGroupParticipant(task.group_id, userId)) ? task : null;
+    return task.user_id === userId && !task.shared_with_team ? task : null;
+  }
   if (task.category === 'pessoal' && task.user_id !== userId) return null;
   if (task.category === 'trabalho' && task.project_id) {
     if (task.user_id !== userId && !(await isProjectParticipant(task.project_id, userId))) return null;
@@ -86,6 +88,7 @@ router.get('/', async (req, res) => {
   const params = [];
 
   if (category === 'trabalho' && scope === 'team') {
+    if (!(await canViewSharedPool(group, req.userId))) return res.json([]);
     // shared team/company pool, visible to every member regardless of who created it —
     // sem "group", é o Tercon (group_id IS NULL); com "group", é um grupo novo isolado
     query += ' AND category = ? AND shared_with_team = 1';
@@ -160,6 +163,10 @@ router.post('/', async (req, res) => {
   if (category === 'trabalho' && assignees.some(id => id !== req.userId)) shared = 1;
   if (projectId || groupId) shared = 1;
 
+  if (shared && !groupId && (await isGuest(req.userId))) {
+    return res.status(403).json({ error: 'Convidados só podem criar tarefas compartilhadas nos grupos em que participam' });
+  }
+
   const result = await db.prepare(
     'INSERT INTO tasks (user_id, title, description, category, due_date, shared_with_team, project_id, group_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   ).run(req.userId, title, description || '', category, due_date || null, shared, projectId, groupId);
@@ -210,6 +217,9 @@ router.put('/:id', async (req, res) => {
   // sem nenhum dos dois, é o Tercon — o ticket só vira compartilhado (comportamento de sempre)
   if (assignees && updated.category === 'trabalho') {
     const others = assignees.filter(id => id !== task.user_id);
+    if (others.length > 0 && !task.group_id && (await isGuest(req.userId))) {
+      return res.status(403).json({ error: 'Convidados só podem atribuir pessoas em tarefas dos seus grupos' });
+    }
     if (others.length > 0) {
       if (task.project_id) {
         const insertParticipant = db.prepare('INSERT OR IGNORE INTO project_participants (project_id, user_id) VALUES (?, ?)');
